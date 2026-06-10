@@ -1,43 +1,155 @@
 import type { QuotaTier } from "../../../../shared/types";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
 
-// Codex / ChatGPT OAuth quota
-// Uses ChatGPT backend-api wham usage endpoint
+export async function queryCodexOauth(_accessToken?: string, _accountId?: string): Promise<QuotaTier[]> {
+  try {
+    const codexSessionsDir = getCodexSessionsDir();
+    if (!fs.existsSync(codexSessionsDir)) {
+      return [{
+        name: "five_hour",
+        utilization: 0,
+        resetsAt: null,
+        planLabel: "未找到 Codex 会话目录",
+      }];
+    }
 
-export async function queryCodexOauth(accessToken: string, _baseUrl?: string): Promise<QuotaTier[]> {
-  const resp = await fetch("https://chatgpt.com/backend-api/wham/usage", {
-    headers: {
-      "Authorization": `Bearer ${accessToken}`,
-      "User-Agent": "codex-cli",
-    },
-    signal: AbortSignal.timeout(10_000),
+    const result = findRateLimitsInSessions(codexSessionsDir);
+    if (!result) {
+      return [{
+        name: "five_hour",
+        utilization: 0,
+        resetsAt: null,
+        planLabel: "会话日志中无额度信息",
+      }];
+    }
+
+    return [
+      {
+        name: "five_hour",
+        utilization: result.fiveHourPercent,
+        resetsAt: result.fiveHourResetsAt ? new Date(result.fiveHourResetsAt * 1000).toISOString() : null,
+        planLabel: `5小时窗口 ${result.fiveHourResetsAt ? formatResetLabel(result.fiveHourResetsAt, false) : "--:--"}`,
+      },
+      {
+        name: "seven_day",
+        utilization: result.weekPercent,
+        resetsAt: result.weekResetsAt ? new Date(result.weekResetsAt * 1000).toISOString() : null,
+        planLabel: `7天窗口 ${result.weekResetsAt ? formatResetLabel(result.weekResetsAt, true) : "--/--"}`,
+      },
+    ];
+  } catch (error: any) {
+    throw new Error(`查询 Codex 额度失败: ${error.message}`);
+  }
+}
+
+function getCodexSessionsDir(): string {
+  const homeDir = os.homedir();
+  const platform = os.platform();
+  
+  if (platform === "win32") {
+    return path.join(homeDir, ".codex", "sessions");
+  }
+  return path.join(homeDir, ".codex", "sessions");
+}
+
+interface RateLimitResult {
+  fiveHourPercent: number;
+  fiveHourResetsAt: number | null;
+  weekPercent: number;
+  weekResetsAt: number | null;
+}
+
+function findRateLimitsInSessions(sessionsDir: string): RateLimitResult | null {
+  const rolloutPattern = path.join(sessionsDir, "**", "rollout-*.jsonl");
+  const files: string[] = [];
+  
+  try {
+    const walkDir = (dir: string) => {
+      const items = fs.readdirSync(dir, { withFileTypes: true });
+      for (const item of items) {
+        const fullPath = path.join(dir, item.name);
+        if (item.isDirectory()) {
+          walkDir(fullPath);
+        } else if (item.isFile() && item.name.startsWith("rollout-") && item.name.endsWith(".jsonl")) {
+          files.push(fullPath);
+        }
+      }
+    };
+    walkDir(sessionsDir);
+  } catch (error) {
+    return null;
+  }
+
+  if (files.length === 0) {
+    return null;
+  }
+
+  files.sort((a, b) => {
+    try {
+      return fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs;
+    } catch {
+      return 0;
+    }
   });
 
-  if (resp.status === 401 || resp.status === 403) {
-    throw new Error(`Auth error: ${resp.status}`);
-  }
-  if (!resp.ok) {
-    throw new Error(`HTTP ${resp.status}`);
-  }
-
-  const data = await resp.json() as any;
-  const tiers: QuotaTier[] = [];
-
-  const rateLimit = data?.rate_limit ?? data;
-  const windows = [rateLimit?.primary_window, rateLimit?.secondary_window].filter(Boolean);
-
-  for (const w of windows) {
-    const secs = w.limit_window_seconds ?? w.window_seconds;
-    const name = secs === 18000 ? "five_hour"
-      : secs === 604800 ? "seven_day"
-      : secs <= 86400 ? `window_${Math.round(secs / 3600)}h`
-      : `window_${Math.round(secs / 86400)}d`;
-
-    tiers.push({
-      name,
-      utilization: Math.round(w.used_percent ?? w.utilization ?? 0),
-      resetsAt: w.reset_at ? new Date(w.reset_at * 1000).toISOString() : null,
-    });
+  for (const filepath of files.slice(0, 3)) {
+    const result = searchFileForRateLimits(filepath);
+    if (result) {
+      return result;
+    }
   }
 
-  return tiers;
+  return null;
+}
+
+function searchFileForRateLimits(filepath: string): RateLimitResult | null {
+  try {
+    const lines = fs.readFileSync(filepath, "utf-8").split("\n");
+    
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      
+      try {
+        const entry = JSON.parse(line);
+        const rateLimits = entry.payload?.rate_limits;
+        if (!rateLimits) continue;
+
+        const primary = rateLimits.primary;
+        const secondary = rateLimits.secondary;
+        
+        if (!primary || !secondary) continue;
+
+        return {
+          fiveHourPercent: Math.round(primary.used_percent ?? 0),
+          fiveHourResetsAt: primary.resets_at ?? null,
+          weekPercent: Math.round(secondary.used_percent ?? 0),
+          weekResetsAt: secondary.resets_at ?? null,
+        };
+      } catch {
+        continue;
+      }
+    }
+  } catch (error) {
+    return null;
+  }
+
+  return null;
+}
+
+function formatResetLabel(unixSeconds: number, isWeekly: boolean): string {
+  try {
+    const dt = new Date(unixSeconds * 1000);
+    const localOffset = dt.getTimezoneOffset() * 60 * 1000;
+    const localTime = new Date(dt.getTime() + localOffset);
+    
+    if (isWeekly) {
+      return `${localTime.getMonth() + 1}-${localTime.getDate()}`;
+    }
+    return `${String(localTime.getHours()).padStart(2, "0")}:${String(localTime.getMinutes()).padStart(2, "0")}`;
+  } catch {
+    return isWeekly ? "--/--" : "--:--";
+  }
 }

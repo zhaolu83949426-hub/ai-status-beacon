@@ -1,0 +1,4 @@
+module.exports = {
+  id: "clawd-on-desk",
+  name: "AI Status Beacon",
+};

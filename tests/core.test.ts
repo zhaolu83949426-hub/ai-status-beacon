@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { mapEventToBeaconState, registerAgentEventMap } from "../electron/main/state/state-mapper";
+import { buildHookPlan } from "../electron/main/hooks/hook-sync-plan";
+import type { AgentDescriptor } from "../shared/agent-types";
 
 // We test the pure logic functions without Electron dependencies.
 // Import the source directly — vitest handles TS.
@@ -9,7 +12,15 @@ describe("State Aggregation", () => {
   // Recreate the priority logic inline since StateStore depends on Electron
   const STATE_PRIORITY: Record<string, number> = {
     idle: 0,
+    sleeping: 0,
+    "codex-turn-end": 0,
+    thinking: 1,
     working: 1,
+    attention: 1,
+    notification: 2,
+    juggling: 1,
+    sweeping: 1,
+    carrying: 1,
     error: 2,
     approval: 3,
   };
@@ -53,29 +64,73 @@ describe("State Aggregation", () => {
 // ── Event Mapping ──
 
 describe("Event Mapping", () => {
-  const GENERIC_MAP: Record<string, string> = {
-    SessionStart: "idle",
-    UserPromptSubmit: "working",
-    PreToolUse: "working",
-    PostToolUse: "working",
-    Thinking: "working",
-    Stop: "idle",
-    SessionEnd: "idle",
-    Error: "error",
-    ToolFailure: "error",
-    WaitingForApproval: "approval",
+  it("uses registered agent event maps", () => {
+    registerAgentEventMap("spec-agent", { UserPromptSubmit: "thinking", Stop: "attention" });
+    expect(mapEventToBeaconState("spec-agent", "UserPromptSubmit")).toBe("thinking");
+    expect(mapEventToBeaconState("spec-agent", "Stop")).toBe("attention");
+  });
+
+  it("uses normalized names only inside registered maps", () => {
+    registerAgentEventMap("normalized-agent", { ToolCallEnd: "idle" });
+    expect(mapEventToBeaconState("normalized-agent", "tool_call_end")).toBe("idle");
+  });
+
+  it("does not infer unregistered events", () => {
+    expect(mapEventToBeaconState("test", "approval_pending")).toBe("idle");
+    expect(mapEventToBeaconState("test", "RunAgentLoop")).toBe("idle");
+  });
+});
+
+describe("Hook Plan", () => {
+  const agent: AgentDescriptor = {
+    id: "test-agent",
+    name: "Test Agent",
+    integrationKind: "claude-settings",
+    processNames: { win: [], mac: [] },
+    configPaths: [],
+    capabilities: { state: true, permission: true },
+    eventSource: "hook",
+    hookConfig: {
+      configFormat: "claude-code-compatible",
+      scriptName: "test-hook.js",
+      events: ["SessionStart"],
+      permissionEvents: ["PermissionRequest"],
+    },
+    defaultStateEnabled: true,
+    defaultPermissionEnabled: true,
+    eventMap: {},
+    mapEvent: () => ({ agentId: "test-agent", sessionId: "s", event: "SessionStart", occurredAt: Date.now() }),
+    mapPermission: () => ({}),
   };
 
-  function mapEvent(event: string): string {
-    return GENERIC_MAP[event] ?? "idle";
-  }
+  it("creates permission hook when only permission is enabled", () => {
+    const plan = buildHookPlan({
+      agent,
+      settings: { stateEnabled: false, permissionEnabled: true },
+      nodeBin: "node",
+      hooksDir: "C:/hooks",
+      port: 23333,
+      platform: "win32",
+    });
 
-  it("maps SessionStart to idle", () => expect(mapEvent("SessionStart")).toBe("idle"));
-  it("maps UserPromptSubmit to working", () => expect(mapEvent("UserPromptSubmit")).toBe("working"));
-  it("maps PreToolUse to working", () => expect(mapEvent("PreToolUse")).toBe("working"));
-  it("maps Error to error", () => expect(mapEvent("Error")).toBe("error"));
-  it("maps WaitingForApproval to approval", () => expect(mapEvent("WaitingForApproval")).toBe("approval"));
-  it("maps unknown events to idle", () => expect(mapEvent("SomethingElse")).toBe("idle"));
+    expect(plan.entries.PermissionRequest[0].hooks).toEqual([
+      { type: "http", url: "http://127.0.0.1:23333/permission", timeout: 600 },
+    ]);
+    expect(plan.entries.SessionStart).toBeUndefined();
+  });
+
+  it("does not create permission hook when permission is disabled", () => {
+    const plan = buildHookPlan({
+      agent,
+      settings: { stateEnabled: true, permissionEnabled: false },
+      nodeBin: "node",
+      hooksDir: "C:/hooks",
+      port: 23333,
+      platform: "win32",
+    });
+
+    expect(plan.entries.PermissionRequest).toBeUndefined();
+  });
 });
 
 // ── Quota Tier Sorting ──

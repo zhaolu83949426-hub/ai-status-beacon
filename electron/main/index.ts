@@ -18,6 +18,8 @@ import { SoundService } from "./sound/sound-service";
 import { setAutoLaunch } from "./settings/auto-launch";
 import { getLogger } from "./utils/logger";
 import { QuotaService } from "./quota/quota-service";
+import { initUpdater, stopScheduler } from "./updater/updater";
+import type { AgentSettings } from "../../shared/types";
 
 const log = getLogger();
 
@@ -27,6 +29,34 @@ let stateStore: StateStore;
 let permissionStore: PermissionStore;
 let soundService: SoundService;
 let quotaService: QuotaService;
+
+function getQuotaSlotCount() {
+  const displaySlots = settings.get().quota.displaySlots;
+  return [displaySlots.slot1AccountId, displaySlots.slot2AccountId].filter(Boolean).length;
+}
+
+function syncQuotaRefresh() {
+  const quota = settings.get().quota;
+  quotaService.startPeriodicRefresh(
+    quota.refreshIntervalMinutes,
+    () => settings.get().quota.accounts,
+    () => settings.get().quota.displaySlots,
+    (snapshots) => stateStore.updateQuotaSlots(snapshots),
+  );
+}
+
+function syncStatusBarBounds() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const current = settings.get();
+  mainWindow.setBounds(computeBounds(current.statusBar.placement, {
+    lightMode: current.statusBar.lightMode,
+    quotaSlotCount: getQuotaSlotCount(),
+  }));
+}
+
+function shouldSyncHooks(agentSettings: AgentSettings): boolean {
+  return agentSettings.stateEnabled || agentSettings.permissionEnabled;
+}
 
 function bootstrap() {
   log.info("business", "Application starting...");
@@ -57,10 +87,10 @@ function bootstrap() {
   server.start().then(() => {
     log.info("server", `HTTP server started on port ${server.getPort()}`);
     // 6. Sync hooks for enabled agents
-    const hookSync = new HookSyncService(server.getPort()!);
+    const hookSync = new HookSyncService(server.getPort()!, settings.get().agents);
     const agentSettings = settings.get().agents;
     for (const [agentId, agentConfig] of Object.entries(agentSettings)) {
-      if (agentConfig.stateEnabled) {
+      if (shouldSyncHooks(agentConfig)) {
         const result = hookSync.syncAgent(agentId);
         log.info("agent", `Hook sync ${agentId}: ${result.hookStatus}`);
       }
@@ -69,9 +99,10 @@ function bootstrap() {
 
   // 7. Create sound service
   soundService = new SoundService(settings);
+  quotaService = new QuotaService();
 
   // 8. Register IPC handlers
-  registerIpcHandlers(settings, stateStore, permissionStore, server);
+  registerIpcHandlers(settings, stateStore, permissionStore, server, quotaService, soundService);
 
   // 9. Additional IPC: pending permissions list
   ipcMain.handle("getPendingPermissions", async () => {
@@ -132,10 +163,10 @@ function bootstrap() {
   });
 
   // 15. Start display monitor
-  const stopMonitor = startDisplayMonitor(mainWindow, settings, {
-    lightMode: s.statusBar.lightMode,
-    quotaSlotCount,
-  });
+  const stopMonitor = startDisplayMonitor(mainWindow, settings, () => ({
+    lightMode: settings.get().statusBar.lightMode,
+    quotaSlotCount: getQuotaSlotCount(),
+  }));
 
   // 16. Create system tray
   createTray({
@@ -149,13 +180,21 @@ function bootstrap() {
   });
 
   // 17. Start quota refresh
-  quotaService = new QuotaService();
-  quotaService.startPeriodicRefresh(
-    s.quota.refreshIntervalMinutes,
-    () => settings.get().quota.accounts,
-    () => settings.get().quota.displaySlots,
-    (snapshots) => stateStore.updateQuotaSlots(snapshots),
-  );
+  syncQuotaRefresh();
+
+  // 18. 设置变更后立即刷新额度与状态栏尺寸，避免等待下一次轮询。
+  settings.onChange(() => {
+    syncQuotaRefresh();
+    syncStatusBarBounds();
+  });
+
+  // 19. 初始化自动更新
+  initUpdater();
+
+  // 20. 暴露版本号给渲染进程
+  ipcMain.handle("getAppVersion", async () => {
+    return app.getVersion();
+  });
 
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -187,5 +226,5 @@ function bootstrap() {
 app.whenReady().then(bootstrap);
 
 app.on("before-quit", () => {
-  // Cleanup handled in window-all-closed
+  stopScheduler();
 });

@@ -8,12 +8,63 @@ import type { StateStore } from "../state/state-store";
 import type { PermissionStore } from "../permission/permission-store";
 import type { SettingsStore } from "../settings/settings-store";
 import { formatPermissionResponse } from "../permission/permission-response-adapter";
+import { getLogger } from "../utils/logger";
 
 const PORT_START = 23333;
 const PORT_END = 23337;
 const MAX_BODY_SIZE = 512 * 1024;
 const RUNTIME_DIR = join(homedir(), ".ai-status-beacon");
 const RUNTIME_FILE = join(RUNTIME_DIR, "runtime.json");
+const log = getLogger();
+
+function readString(raw: Record<string, unknown>, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = raw[key];
+    if (typeof value === "string" && value) return value;
+  }
+  return "";
+}
+
+function readNumber(raw: Record<string, unknown>, ...keys: string[]): number | undefined {
+  for (const key of keys) {
+    const value = raw[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+  }
+  return undefined;
+}
+
+function normalizeStatePayload(raw: Record<string, unknown>): AgentStateEvent {
+  return {
+    agentId: readString(raw, "agentId", "agent_id") || "",
+    sessionId: readString(raw, "sessionId", "session_id") || "",
+    event: readString(raw, "event") || "",
+    rawState: readString(raw, "rawState", "raw_state", "state") || undefined,
+    cwd: readString(raw, "cwd") || undefined,
+    toolName: readString(raw, "toolName", "tool_name") || undefined,
+    sourcePid: readNumber(raw, "sourcePid", "source_pid"),
+    agentPid: readNumber(raw, "agentPid", "agent_pid", "claude_pid"),
+    model: readString(raw, "model") || undefined,
+    provider: readString(raw, "provider") || undefined,
+    occurredAt: readNumber(raw, "occurredAt", "occurred_at") ?? Date.now(),
+  };
+}
+
+function normalizePermissionPayload(raw: Record<string, unknown>): PermissionRequest {
+  const rawInput = raw.rawInput ?? raw.raw_input ?? raw.tool_input ?? raw;
+  return {
+    id: readString(raw, "id") || crypto.randomUUID(),
+    agentId: readString(raw, "agentId", "agent_id") || "",
+    sessionId: readString(raw, "sessionId", "session_id") || "",
+    toolName: readString(raw, "toolName", "tool_name") || "",
+    summary: readString(raw, "summary", "tool_input_description") || "",
+    cwd: readString(raw, "cwd") || undefined,
+    riskHint: readString(raw, "riskHint", "risk_hint") || undefined,
+    rawInput,
+    suggestions: (raw.suggestions as PermissionRequest["suggestions"]) ?? [],
+    requiresTextInput: (raw.requiresTextInput as boolean) ?? (raw.requires_text_input as boolean) ?? false,
+    createdAt: readNumber(raw, "createdAt", "created_at") ?? Date.now(),
+  };
+}
 
 export class BeaconServer {
   private stateStore: StateStore;
@@ -114,9 +165,23 @@ export class BeaconServer {
 
       if (req.method === "POST" && url.pathname === "/state") {
         const body = await this.readBody(req);
-        const event = JSON.parse(body) as AgentStateEvent;
+        const event = normalizeStatePayload(JSON.parse(body) as Record<string, unknown>);
+
+        log.info("server", "State hook received", {
+          agentId: event.agentId,
+          sessionId: event.sessionId,
+          event: event.event,
+          rawState: event.rawState,
+          toolName: event.toolName,
+          cwd: event.cwd,
+        });
 
         if (!event.agentId || !event.sessionId || !event.event) {
+          log.warn("server", "State hook missing required fields", {
+            agentId: event.agentId,
+            sessionId: event.sessionId,
+            event: event.event,
+          });
           this.sendJson(res, 400, { error: "Missing required fields: agentId, sessionId, event" });
           return;
         }
@@ -127,6 +192,11 @@ export class BeaconServer {
         const settings = this.settings.get();
         const agentSettings = settings.agents[event.agentId];
         if (agentSettings && !agentSettings.stateEnabled) {
+          log.info("server", "State hook ignored, stateEnabled=false", {
+            agentId: event.agentId,
+            sessionId: event.sessionId,
+            event: event.event,
+          });
           this.sendJson(res, 200, { status: "ignored" });
           return;
         }
@@ -138,26 +208,24 @@ export class BeaconServer {
 
       if (req.method === "POST" && url.pathname === "/permission") {
         const body = await this.readBody(req);
-        const raw = JSON.parse(body);
+        const request = normalizePermissionPayload(JSON.parse(body) as Record<string, unknown>);
 
-        const request: PermissionRequest = {
-          id: raw.id ?? crypto.randomUUID(),
-          agentId: raw.agentId,
-          sessionId: raw.sessionId ?? "",
-          toolName: raw.toolName ?? "",
-          summary: raw.summary ?? "",
-          cwd: raw.cwd,
-          riskHint: raw.riskHint,
-          rawInput: raw.rawInput ?? raw,
-          suggestions: raw.suggestions ?? [],
-          requiresTextInput: raw.requiresTextInput ?? false,
-          createdAt: raw.createdAt ?? Date.now(),
-        };
+        log.info("server", "Permission hook received", {
+          agentId: request.agentId,
+          sessionId: request.sessionId,
+          toolName: request.toolName,
+          summary: request.summary,
+        });
 
         // Check if agent permission handling is enabled
         const settings = this.settings.get();
         const agentSettings = settings.agents[request.agentId];
         if (!agentSettings || !agentSettings.permissionEnabled) {
+          log.info("server", "Permission hook ignored, permissionEnabled=false", {
+            agentId: request.agentId,
+            sessionId: request.sessionId,
+            toolName: request.toolName,
+          });
           this.sendJson(res, 200, { decision: "no-decision", reason: "permission handling disabled" });
           return;
         }

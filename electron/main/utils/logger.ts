@@ -11,8 +11,10 @@ export type LogCategory = "server" | "agent" | "business";
 class Logger {
   private stream: ReturnType<typeof createWriteStream> | null = null;
   private logDir: string;
+  private isDev: boolean;
 
   constructor() {
+    this.isDev = !app.isPackaged;
     this.logDir = join(app.getPath("userData"), "logs");
     if (!existsSync(this.logDir)) mkdirSync(this.logDir, { recursive: true });
     this.rotate();
@@ -43,7 +45,14 @@ class Logger {
       this.stream.write(line);
     }
 
-    // Also log to console in dev
+    if (this.isDev && level === "debug") {
+      console.debug(line.trim());
+      return;
+    }
+    if (this.isDev && level === "info") {
+      console.info(line.trim());
+      return;
+    }
     if (level === "error") {
       console.error(line.trim());
     } else if (level === "warn") {

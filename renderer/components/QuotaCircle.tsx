@@ -1,4 +1,19 @@
-import type { QuotaTier } from "../../shared/types";
+import type { QuotaAccountType, QuotaTier } from "../../shared/types";
+
+const ACCOUNT_TYPE_LABELS: Record<QuotaAccountType, string> = {
+  claude_official: "Claude",
+  codex_oauth: "GPT",
+  gemini_official: "Gemini",
+  github_copilot: "Copilot",
+  kimi_token_plan: "Kimi",
+  zhipu_token_plan: "GLM",
+  minimax_token_plan: "MiniMax",
+  deepseek_balance: "DeepSeek",
+  stepfun_balance: "StepFun",
+  siliconflow_balance: "SiliconFlow",
+  openrouter_balance: "OpenRouter",
+  novita_balance: "Novita",
+};
 
 function getColor(utilization: number): string {
   if (utilization < 70) return "#4ade80";
@@ -13,7 +28,7 @@ export function QuotaCircle({
   tier: QuotaTier;
   size?: number;
 }) {
-  const strokeWidth = 3;
+  const strokeWidth = 4.5;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (tier.utilization / 100) * circumference;
@@ -55,12 +70,17 @@ export function QuotaCircle({
 }
 
 export function QuotaSlot({
+  accountType,
   tiers,
   size = 32,
 }: {
+  accountType: QuotaAccountType;
   tiers: QuotaTier[];
   size?: number;
 }) {
+  const label = ACCOUNT_TYPE_LABELS[accountType];
+  const isBalanceType = accountType.endsWith("_balance");
+
   if (tiers.length === 0) {
     return (
       <div className="quota-slot quota-slot-error" style={{ width: size, height: size }}>
@@ -69,11 +89,38 @@ export function QuotaSlot({
     );
   }
 
+  if (isBalanceType) {
+    const tier = tiers[0];
+    const balanceText = formatBalance(tier);
+    return (
+      <div className="quota-slot">
+        <span className="quota-slot-label">{label}</span>
+        <span className="quota-slot-balance" style={{ fontSize: size * 0.32 }}>
+          {balanceText}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="quota-slot">
-      {tiers.map((t) => (
-        <QuotaCircle key={t.name} tier={t} size={size} />
-      ))}
+      <span className="quota-slot-label">{label}</span>
+      <div className="quota-slot-circles">
+        {tiers.map((t) => (
+          <QuotaCircle key={t.name} tier={t} size={size} />
+        ))}
+      </div>
     </div>
   );
+}
+
+function formatBalance(tier: QuotaTier): string {
+  if (tier.planLabel) {
+    return tier.planLabel;
+  }
+  if (tier.usedValueUsd !== null && tier.maxValueUsd !== null) {
+    const remaining = tier.maxValueUsd - tier.usedValueUsd;
+    return `$${remaining.toFixed(2)}`;
+  }
+  return "$0.00";
 }

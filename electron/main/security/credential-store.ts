@@ -52,10 +52,38 @@ export class CredentialStore {
     saveStore(entries);
   }
 
+  saveAccountId(accountId: string): void {
+    const entries = loadStore();
+    const idx = entries.findIndex(
+      (e) => e.account === accountId && e.kind === "account_id",
+    );
+    const entry: CredentialEntry = { account: accountId, kind: "account_id", encrypted: accountId };
+    if (idx >= 0) {
+      entries[idx] = entry;
+    } else {
+      entries.push(entry);
+    }
+    saveStore(entries);
+  }
+
   get(accountId: string, kind: string): string | null {
     const entries = loadStore();
     const entry = entries.find(
       (e) => e.account === accountId && e.kind === kind,
+    );
+    if (!entry) return null;
+    try {
+      const buffer = Buffer.from(entry.encrypted, "base64");
+      return safeStorage.decryptString(buffer);
+    } catch {
+      return null;
+    }
+  }
+
+  getAccountId(accountId: string): string | null {
+    const entries = loadStore();
+    const entry = entries.find(
+      (e) => e.account === accountId && e.kind === "account_id",
     );
     if (!entry) return null;
     try {

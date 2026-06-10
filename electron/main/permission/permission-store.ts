@@ -63,6 +63,15 @@ export class PermissionStore extends EventEmitter {
     return false;
   }
 
+  closeByAgent(agentId: string): void {
+    const ids = this.getPending()
+      .filter((p) => p.agentId === agentId)
+      .map((p) => p.id);
+    for (const id of ids) {
+      this.resolve(id, { behavior: "no-decision" });
+    }
+  }
+
   // Close all pending with no-decision (e.g., on app quit)
   closeAll(): void {
     for (const [id] of this.pending) {

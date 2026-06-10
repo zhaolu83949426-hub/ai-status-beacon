@@ -8,6 +8,7 @@ export function formatPermissionResponse(
 ): Record<string, unknown> {
   switch (agentId) {
     case "claude-code":
+    case "codebuddy":
       return formatClaudeCodeResponse(decision);
     case "codex":
       return formatCodexResponse(decision);
@@ -39,16 +40,32 @@ function formatClaudeCodeResponse(decision: PermissionDecision): Record<string, 
 }
 
 function formatCodexResponse(decision: PermissionDecision): Record<string, unknown> {
+  let behavior: string;
+  let result: Record<string, unknown>;
+
   switch (decision.behavior) {
     case "allow":
-      return { approved: true };
+      behavior = "allow";
+      result = {};
+      break;
     case "deny":
-      return { approved: false, reason: decision.message ?? "User denied" };
+      behavior = "deny";
+      result = { message: decision.message ?? "User denied" };
+      break;
     case "suggestion":
-      return { approved: true, input: decision.text, suggestionId: decision.suggestionId };
+      behavior = "allow";
+      result = { input: decision.text, suggestionId: decision.suggestionId };
+      break;
     default:
-      return {};
+      return { hookSpecificOutput: { hookEventName: "PermissionRequest", decision: { behavior: "no-decision" } } };
   }
+
+  return {
+    hookSpecificOutput: {
+      hookEventName: "PermissionRequest",
+      decision: { behavior, ...result },
+    },
+  };
 }
 
 function formatGenericResponse(decision: PermissionDecision): Record<string, unknown> {

@@ -2,16 +2,26 @@ import { EventEmitter } from "events";
 import type { AccountQuotaSnapshot, BeaconState, AgentStateEvent, AgentSession, BeaconSnapshot } from "../../../shared/types";
 import type { SettingsStore } from "../settings/settings-store";
 import { mapEventToBeaconState } from "./state-mapper";
+import { getLogger } from "../utils/logger";
 
 const STATE_PRIORITY: Record<BeaconState, number> = {
   idle: 0,
+  sleeping: 0,
+  "codex-turn-end": 0,
+  thinking: 1,
   working: 1,
+  attention: 1,
+  notification: 2,
+  juggling: 1,
+  sweeping: 1,
+  carrying: 1,
   error: 2,
   approval: 3,
 };
 
 const MAX_SESSIONS = 50;
 const STALE_SESSION_MS = 10 * 60 * 1000; // 10 minutes
+const log = getLogger();
 
 type SnapshotListener = (snapshot: BeaconSnapshot) => void;
 
@@ -63,6 +73,14 @@ export class StateStore extends EventEmitter {
       this.sessions.set(key, session);
     }
 
+    log.info("agent", "State updated", {
+      agentId: event.agentId,
+      sessionId: event.sessionId,
+      event: event.event,
+      mappedState: beaconState,
+      aggregatedState: this.getAggregatedState(),
+    });
+
     this.emitSnapshot();
   }
 
@@ -88,6 +106,16 @@ export class StateStore extends EventEmitter {
 
   getSessions(): AgentSession[] {
     return [...this.sessions.values()];
+  }
+
+  clearSessionsByAgent(agentId: string): void {
+    let changed = false;
+    for (const [key, session] of this.sessions) {
+      if (session.agentId !== agentId) continue;
+      this.sessions.delete(key);
+      changed = true;
+    }
+    if (changed) this.emitSnapshot();
   }
 
   updateQuotaSlots(quotaSlots: AccountQuotaSnapshot[]): void {

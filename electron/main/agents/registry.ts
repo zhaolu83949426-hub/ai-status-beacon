@@ -1,6 +1,6 @@
 import { existsSync } from "fs";
 import type { AgentDescriptor } from "../../../shared/agent-types";
-import type { AgentSettings } from "../../../shared/types";
+import type { AgentMetadata, AgentSettings, HookSyncResult } from "../../../shared/types";
 import { registerAgentEventMap } from "../state/state-mapper";
 
 import { claudeCodeDescriptor } from "../../../agents/claude-code";
@@ -69,6 +69,22 @@ export function detectInstalledAgents(): Map<string, boolean> {
     result.set(agent.id, installed);
   }
   return result;
+}
+
+export function listAgentMetadata(hookStatusByAgent: Record<string, HookSyncResult["hookStatus"]> = {}): AgentMetadata[] {
+  const installedAgents = detectInstalledAgents();
+  const platform = process.platform === "win32" ? "win" : "mac";
+
+    return ALL_AGENTS.map((agent) => ({
+      id: agent.id,
+      name: agent.name,
+      installed: installedAgents.get(agent.id) ?? false,
+      hookStatus: hookStatusByAgent[agent.id],
+      configPaths: agent.configPaths
+      .filter((p) => p.platform === platform)
+      .map((p) => p.path),
+      capabilities: agent.capabilities,
+    }));
 }
 
 export function getDefaultAgentSettings(): Record<string, AgentSettings> {

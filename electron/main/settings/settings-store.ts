@@ -14,7 +14,7 @@ export function createDefaultSettings(): AppSettings {
   return {
     statusBar: {
       placement: defaultPlacement(),
-      lightMode: "single",
+      lightMode: "triple",
     },
     startup: {
       enabled: false,
@@ -88,13 +88,30 @@ export class SettingsStore {
         approvalPath: (partial.sound as Record<string, unknown>)?.approvalPath as string | null ?? defaults.sound.approvalPath,
         errorPath: (partial.sound as Record<string, unknown>)?.errorPath as string | null ?? defaults.sound.errorPath,
       },
-      agents: (partial.agents as Record<string, unknown>) as AppSettings["agents"] ?? defaults.agents,
+      agents: this.mergeAgentSettings(partial.agents as Record<string, unknown> | undefined, defaults.agents),
       quota: {
         accounts: (partial.quota as Record<string, unknown>)?.accounts as AppSettings["quota"]["accounts"] ?? defaults.quota.accounts,
         displaySlots: (partial.quota as Record<string, unknown>)?.displaySlots as AppSettings["quota"]["displaySlots"] ?? defaults.quota.displaySlots,
         refreshIntervalMinutes: (partial.quota as Record<string, unknown>)?.refreshIntervalMinutes as number ?? defaults.quota.refreshIntervalMinutes,
       },
     };
+  }
+
+  private mergeAgentSettings(
+    partialAgents: Record<string, unknown> | undefined,
+    defaults: AppSettings["agents"],
+  ): AppSettings["agents"] {
+    const merged: AppSettings["agents"] = {};
+    const agentIds = new Set([...Object.keys(defaults), ...Object.keys(partialAgents ?? {})]);
+    for (const agentId of agentIds) {
+      const defaultSettings = defaults[agentId] ?? { stateEnabled: false, permissionEnabled: false };
+      const partial = partialAgents?.[agentId] as Record<string, unknown> | undefined;
+      merged[agentId] = {
+        stateEnabled: partial?.stateEnabled as boolean ?? defaultSettings.stateEnabled,
+        permissionEnabled: partial?.permissionEnabled as boolean ?? defaultSettings.permissionEnabled,
+      };
+    }
+    return merged;
   }
 
   get(): AppSettings {

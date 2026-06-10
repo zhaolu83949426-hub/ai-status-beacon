@@ -28,11 +28,15 @@ export default defineConfig({
   renderer: {
     root: resolve(__dirname, "renderer"),
     plugins: [react()],
+    server: {
+      port: 3100,
+      strictPort: false,
+    },
     build: {
       outDir: resolve(__dirname, "dist/renderer"),
       rollupOptions: {
         input: {
-          index: resolve(__dirname, "renderer/app/index.html"),
+          index: resolve(__dirname, "renderer/index.html"),
         },
       },
     },

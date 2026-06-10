@@ -56,8 +56,8 @@ export function updateTraySoundChecked(checked: boolean): void {
 
 function getTrayIcon(): Electron.NativeImage {
   const iconPath = app.isPackaged
-    ? join(process.resourcesPath, "icons", "tray-icon-16.png")
-    : join(process.cwd(), "assets", "icons", "tray-icon-16.png");
+    ? join(process.resourcesPath, "icons", "image.png")
+    : join(process.cwd(), "assets", "icons", "image.png");
   const icon = nativeImage.createFromPath(iconPath);
   return icon.isEmpty() ? nativeImage.createEmpty() : icon;
 }

@@ -9,7 +9,6 @@ export function ApprovalPage() {
       window.beaconApi.getPendingPermissions().then(setPending);
     };
     fetchPending();
-    // Re-fetch on every snapshot push (permission added/removed)
     const unsub = window.beaconApi.onBeaconSnapshot(() => fetchPending());
     return unsub;
   }, []);
@@ -20,7 +19,7 @@ export function ApprovalPage() {
   };
 
   return (
-    <div className="approval-container">
+    <div className="approval-page">
       <div className="approval-header">
         <span className="approval-title">审批请求</span>
         <span className="approval-count">{pending.length}</span>
@@ -31,7 +30,7 @@ export function ApprovalPage() {
         ))}
       </div>
       {pending.length === 0 && (
-        <div className="approval-empty">无待审批请求</div>
+        <div className="empty-state">无待审批请求</div>
       )}
     </div>
   );
@@ -79,7 +78,7 @@ function ApprovalCard({
       )}
       <div className="approval-actions">
         <button
-          className="btn-allow"
+          className="btn btn-allow"
           onClick={() =>
             onDecide(p.id, {
               behavior: "allow",
@@ -90,7 +89,7 @@ function ApprovalCard({
           允许
         </button>
         <button
-          className="btn-deny"
+          className="btn btn-deny"
           onClick={() =>
             onDecide(p.id, {
               behavior: "deny",
@@ -103,7 +102,7 @@ function ApprovalCard({
         {p.suggestions.map((s) => (
           <button
             key={s.id}
-            className="btn-suggestion"
+            className="btn btn-suggestion"
             onClick={() =>
               onDecide(p.id, {
                 behavior: "suggestion",

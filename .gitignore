@@ -25,5 +25,8 @@ Thumbs.db
 # TypeScript cache
 *.tsbuildinfo
 
+# CodeGraph
+.codegraph/
+
 # Docs
 docs/

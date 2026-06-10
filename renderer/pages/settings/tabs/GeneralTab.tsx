@@ -9,14 +9,14 @@ const EDGES: { value: StatusBarPlacement["edge"]; label: string }[] = [
 
 export function GeneralTab({ settings, onSave }: { settings: AppSettings; onSave: (s: AppSettings) => void }) {
   return (
-    <div className="settings-section">
-      <div className="settings-field">
-        <label>状态栏位置</label>
-        <div className="settings-radio-group">
+    <div className="section">
+      <div className="card">
+        <div className="section-title">状态栏位置</div>
+        <div className="radio-group" style={{ marginTop: 8 }}>
           {EDGES.map((e) => (
             <button
               key={e.value}
-              className={`settings-radio ${settings.statusBar.placement.edge === e.value ? "active" : ""}`}
+              className={`radio-btn ${settings.statusBar.placement.edge === e.value ? "active" : ""}`}
               onClick={() =>
                 onSave({
                   ...settings,
@@ -33,11 +33,11 @@ export function GeneralTab({ settings, onSave }: { settings: AppSettings; onSave
         </div>
       </div>
 
-      <div className="settings-field">
-        <label>红绿灯形态</label>
-        <div className="settings-radio-group">
+      <div className="card">
+        <div className="section-title">红绿灯形态</div>
+        <div className="radio-group" style={{ marginTop: 8 }}>
           <button
-            className={`settings-radio ${settings.statusBar.lightMode === "single" ? "active" : ""}`}
+            className={`radio-btn ${settings.statusBar.lightMode === "single" ? "active" : ""}`}
             onClick={() =>
               onSave({ ...settings, statusBar: { ...settings.statusBar, lightMode: "single" } })
             }
@@ -45,7 +45,7 @@ export function GeneralTab({ settings, onSave }: { settings: AppSettings; onSave
             单灯
           </button>
           <button
-            className={`settings-radio ${settings.statusBar.lightMode === "triple" ? "active" : ""}`}
+            className={`radio-btn ${settings.statusBar.lightMode === "triple" ? "active" : ""}`}
             onClick={() =>
               onSave({ ...settings, statusBar: { ...settings.statusBar, lightMode: "triple" } })
             }
@@ -55,18 +55,20 @@ export function GeneralTab({ settings, onSave }: { settings: AppSettings; onSave
         </div>
       </div>
 
-      <div className="settings-field">
-        <label>开机自启动</label>
-        <label className="settings-toggle">
-          <input
-            type="checkbox"
-            checked={settings.startup.enabled}
-            onChange={(e) =>
-              onSave({ ...settings, startup: { enabled: e.target.checked } })
-            }
-          />
-          <span className="toggle-slider" />
-        </label>
+      <div className="card">
+        <div className="field-row">
+          <label>开机自启动</label>
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={settings.startup.enabled}
+              onChange={(e) =>
+                onSave({ ...settings, startup: { enabled: e.target.checked } })
+              }
+            />
+            <span className="toggle-track" />
+          </label>
+        </div>
       </div>
     </div>
   );

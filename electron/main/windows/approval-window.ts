@@ -22,7 +22,7 @@ export function getOrCreateApprovalWindow(): BrowserWindow {
     skipTaskbar: false,
     title: "AI Status Beacon — Approval",
     webPreferences: {
-      preload: join(__dirname, "../../preload/index.js"),
+      preload: join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -36,7 +36,7 @@ export function getOrCreateApprovalWindow(): BrowserWindow {
   if (process.env.ELECTRON_RENDERER_URL) {
     approvalWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}#approval`);
   } else {
-    approvalWindow.loadFile(join(__dirname, "../../renderer/index.html"), { hash: "approval" });
+    approvalWindow.loadFile(join(__dirname, "../renderer/index.html"), { hash: "approval" });
   }
 
   approvalWindow.on("closed", () => {

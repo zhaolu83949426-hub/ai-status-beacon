@@ -1,9 +1,12 @@
 import { screen } from "electron";
 import type { StatusBarPlacement, StatusBarBounds } from "../../../shared/types";
 
-const BASE_HEIGHT = 48; // Approximate: system icon size / 2
-const CAPSULE_LENGTH = 280;
-const MIN_LENGTH = 120;
+const BASE_HEIGHT = 64;
+const HORIZONTAL_HEIGHT = 52;
+const CAPSULE_LENGTH = 340;
+const MIN_LENGTH = 160;
+const SCREEN_EDGE_OVERLAP = 5;
+const TOP_EDGE_Y_OFFSET = 3;
 
 export interface GeometryConfig {
   lightMode: "single" | "triple";
@@ -15,33 +18,38 @@ export function computeBounds(
   config: GeometryConfig,
 ): StatusBarBounds {
   const display = resolveDisplay(placement.displayId);
-  const { workArea } = display;
+  const { bounds } = display;
 
   const isHorizontal = placement.edge === "top" || placement.edge === "bottom";
 
   // Compute capsule length based on content
   let length = CAPSULE_LENGTH;
-  if (config.lightMode === "triple") length += 40;
+  if (config.lightMode === "triple") length += 58;
   length += config.quotaSlotCount * 60;
   length = Math.max(MIN_LENGTH, length);
 
-  const height = BASE_HEIGHT;
+  const height = isHorizontal ? HORIZONTAL_HEIGHT : BASE_HEIGHT;
   const offsetRatio = placement.offsetRatio;
 
+  // 顶部贴显示器物理边缘；底部贴 workArea 底边（即任务栏上方）。
   if (isHorizontal) {
-    const w = Math.min(length, workArea.width - 20);
-    const x = Math.round(workArea.x + (workArea.width - w) * offsetRatio);
-    const y = placement.edge === "top"
-      ? workArea.y
-      : workArea.y + workArea.height - height;
-    return { x, y, width: w, height };
+    const w = Math.min(length, bounds.width - 20);
+    const x = Math.round(bounds.x + (bounds.width - w) * offsetRatio);
+    if (placement.edge === "top") {
+      const y = bounds.y - SCREEN_EDGE_OVERLAP + TOP_EDGE_Y_OFFSET;
+      return { x, y, width: w, height };
+    } else {
+      const workArea = display.workArea;
+      const y = workArea.y + workArea.height - height + SCREEN_EDGE_OVERLAP;
+      return { x, y, width: w, height };
+    }
   } else {
-    const h = Math.min(length, workArea.height - 20);
+    const h = Math.min(length, bounds.height - 20);
     const w = height;
     const x = placement.edge === "left"
-      ? workArea.x
-      : workArea.x + workArea.width - w;
-    const y = Math.round(workArea.y + (workArea.height - h) * offsetRatio);
+      ? bounds.x - SCREEN_EDGE_OVERLAP
+      : bounds.x + bounds.width - w + SCREEN_EDGE_OVERLAP;
+    const y = Math.round(bounds.y + (bounds.height - h) * offsetRatio);
     return { x, y, width: w, height: h };
   }
 }

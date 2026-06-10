@@ -5,12 +5,12 @@ import { computeBounds, type GeometryConfig } from "./status-bar-geometry";
 export function startDisplayMonitor(
   mainWindow: BrowserWindow,
   settings: SettingsStore,
-  geometryConfig: GeometryConfig,
+  getGeometryConfig: () => GeometryConfig,
 ): () => void {
   const reposition = () => {
     if (mainWindow.isDestroyed()) return;
     const placement = settings.get().statusBar.placement;
-    const bounds = computeBounds(placement, geometryConfig);
+    const bounds = computeBounds(placement, getGeometryConfig());
     mainWindow.setBounds(bounds);
   };
 

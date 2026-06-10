@@ -1,120 +1,162 @@
-import { useEffect, useState } from "react";
-import type { AppSettings, HookSyncResult } from "../../../../shared/types";
-import type { AgentDescriptor } from "../../../../shared/agent-types";
+import { useEffect, useMemo, useState } from "react";
+import type { AgentMetadata, AgentSettings, AppSettings, HookSyncResult } from "../../../../shared/types";
 
-interface AgentInfo {
-  id: string;
-  name: string;
-  installed: boolean;
-  hookStatus: string;
-  stateEnabled: boolean;
-  permissionEnabled: boolean;
-  capabilities: { state: boolean; permission: boolean };
-}
+type HookStatus = HookSyncResult["hookStatus"] | "unknown";
+
+const AGENT_ORDER = [
+  "claude-code",
+  "codex",
+  "gemini-cli",
+  "kimi-cli",
+  "qwen-code",
+  "opencode",
+  "codebuddy",
+  "qoder",
+  "antigravity-cli",
+  "cursor-agent",
+  "copilot-cli",
+  "kiro-cli",
+  "pi",
+  "openclaw",
+  "hermes",
+];
+
+const HOOK_LABELS: Record<HookStatus, string> = {
+  synced: "已同步",
+  missing: "未配置",
+  outdated: "需更新",
+  unsupported: "不支持",
+  error: "错误",
+  unknown: "未同步",
+};
 
 export function AgentsTab({ settings, onSave }: { settings: AppSettings; onSave: (s: AppSettings) => void }) {
-  const [agents, setAgents] = useState<AgentInfo[]>([]);
-  const [syncing, setSyncing] = useState<string | null>(null);
+  const [metadata, setMetadata] = useState<AgentMetadata[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fetch agent info from settings + hardcoded list
-    // In a real app this would come from IPC; here we infer from settings keys
-    const agentSettings = settings.agents;
-    const knownAgents: AgentInfo[] = Object.entries(agentSettings).map(([id, s]) => ({
-      id,
-      name: id, // name resolved from registry on main side
-      installed: true,
-      hookStatus: "unknown",
-      stateEnabled: s.stateEnabled,
-      permissionEnabled: s.permissionEnabled,
-      capabilities: { state: true, permission: s.permissionEnabled },
-    }));
-    setAgents(knownAgents);
-  }, [settings]);
+    window.beaconApi.listAgents()
+      .then((list) => setMetadata(sortAgents(list)))
+      .catch((err) => setError(String(err)));
+  }, []);
 
-  const toggleState = (agentId: string) => {
-    const updated = { ...settings.agents };
-    updated[agentId] = { ...updated[agentId], stateEnabled: !updated[agentId].stateEnabled };
-    onSave({ ...settings, agents: updated });
+  const agents = useMemo(
+    () => (metadata ?? []).map((agent) => ({
+      agent,
+      settings: settings.agents[agent.id],
+      hookStatus: (agent.hookStatus ?? "unknown") as HookStatus,
+    })),
+    [metadata, settings.agents],
+  );
+
+  const setAgentFlag = async (agentId: string, flag: keyof AgentSettings, value: boolean) => {
+    const updated = await window.beaconApi.setAgentFlag(agentId, flag, value);
+    onSave(updated);
   };
 
-  const togglePermission = (agentId: string) => {
-    const updated = { ...settings.agents };
-    updated[agentId] = { ...updated[agentId], permissionEnabled: !updated[agentId].permissionEnabled };
-    onSave({ ...settings, agents: updated });
-  };
-
-  const syncHook = async (agentId: string) => {
-    setSyncing(agentId);
-    try {
-      const result = await window.beaconApi.syncAgentHook(agentId);
-      setAgents((prev) =>
-        prev.map((a) =>
-          a.id === agentId
-            ? { ...a, hookStatus: result.hookStatus, installed: result.installed }
-            : a,
-        ),
-      );
-    } finally {
-      setSyncing(null);
-    }
-  };
+  if (error) return <div className="empty-state">加载 Agent 失败: {error}</div>;
+  if (!metadata) return <div className="empty-state">加载中...</div>;
 
   return (
-    <div className="settings-section">
-      <table className="settings-table">
+    <div className="section">
+      <div className="section-title">Agent 管理</div>
+      <table className="data-table">
         <thead>
           <tr>
             <th>Agent</th>
             <th>状态监控</th>
             <th>审批接管</th>
             <th>Hook</th>
-            <th></th>
           </tr>
         </thead>
         <tbody>
-          {agents.map((agent) => (
-            <tr key={agent.id}>
-              <td className="agent-name">{agent.name}</td>
-              <td>
-                <label className="settings-toggle small">
-                  <input
-                    type="checkbox"
-                    checked={agent.stateEnabled}
-                    onChange={() => toggleState(agent.id)}
-                  />
-                  <span className="toggle-slider" />
-                </label>
-              </td>
-              <td>
-                <label className="settings-toggle small">
-                  <input
-                    type="checkbox"
-                    checked={agent.permissionEnabled}
-                    onChange={() => togglePermission(agent.id)}
-                    disabled={!agent.capabilities.permission}
-                  />
-                  <span className="toggle-slider" />
-                </label>
-              </td>
-              <td>
-                <span className={`hook-status hook-${agent.hookStatus}`}>
-                  {agent.hookStatus}
-                </span>
-              </td>
-              <td>
-                <button
-                  className="btn-sm"
-                  onClick={() => syncHook(agent.id)}
-                  disabled={syncing === agent.id}
-                >
-                  {syncing === agent.id ? "..." : "同步"}
-                </button>
-              </td>
-            </tr>
+          {agents.map(({ agent, settings: agentSettings, hookStatus: status }) => (
+            <AgentRow
+              key={agent.id}
+              agent={agent}
+              stateEnabled={agentSettings.stateEnabled}
+              permissionEnabled={agentSettings.permissionEnabled}
+              hookStatus={status}
+              onToggleState={() => setAgentFlag(agent.id, "stateEnabled", !agentSettings.stateEnabled)}
+              onTogglePermission={() => setAgentFlag(agent.id, "permissionEnabled", !agentSettings.permissionEnabled)}
+            />
           ))}
         </tbody>
       </table>
     </div>
   );
+}
+
+function AgentRow(props: {
+  agent: AgentMetadata;
+  stateEnabled: boolean;
+  permissionEnabled: boolean;
+  hookStatus: HookStatus;
+  onToggleState: () => void;
+  onTogglePermission: () => void;
+}) {
+  return (
+    <tr>
+      <td className="agent-cell">
+        <div className="agent-name">{props.agent.name}</div>
+        <AgentBadges agent={props.agent} />
+      </td>
+      <ToggleCell checked={props.stateEnabled} onChange={props.onToggleState} />
+      <ToggleCell
+        checked={props.permissionEnabled}
+        disabled={!props.agent.capabilities.permission}
+        onChange={props.onTogglePermission}
+      />
+      <td>
+        <span className={`hook-status hook-${props.hookStatus}`}>
+          {HOOK_LABELS[props.hookStatus]}
+        </span>
+      </td>
+    </tr>
+  );
+}
+
+function AgentBadges({ agent }: { agent: AgentMetadata }) {
+  return (
+    <div className="agent-badges">
+      <span className={`agent-badge ${agent.installed ? "accent" : ""}`}>
+        {agent.configPaths.length === 0 ? "无需配置" : agent.installed ? "已配置" : "未配置"}
+      </span>
+      {agent.capabilities.state && <span className="agent-badge">状态</span>}
+      {agent.capabilities.permission && <span className="agent-badge accent">审批</span>}
+    </div>
+  );
+}
+
+function ToggleCell(props: {
+  checked: boolean;
+  disabled?: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <td>
+      <label className="toggle small">
+        <input
+          type="checkbox"
+          checked={props.checked}
+          disabled={props.disabled}
+          onChange={props.onChange}
+        />
+        <span className="toggle-track" />
+      </label>
+    </td>
+  );
+}
+
+function sortAgents(agents: AgentMetadata[]): AgentMetadata[] {
+  return [...agents].sort((a, b) => {
+    const priority = getAgentPriority(a.id) - getAgentPriority(b.id);
+    if (priority !== 0) return priority;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true });
+  });
+}
+
+function getAgentPriority(agentId: string): number {
+  const index = AGENT_ORDER.indexOf(agentId);
+  return index >= 0 ? index : Number.POSITIVE_INFINITY;
 }

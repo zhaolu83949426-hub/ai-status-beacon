@@ -1,25 +1,37 @@
 import type { AgentDescriptor } from "../shared/agent-types";
 import type { BeaconState } from "../shared/types";
 import { baseDescriptor, makeEvent, makePermission } from "./agent-helper";
+import { join } from "path";
+import { homedir } from "os";
 
 const EVENT_MAP: Record<string, BeaconState> = {
   SessionStart: "idle",
-  UserPromptSubmit: "working",
-  Thinking: "working",
-  ToolCallStart: "working",
-  ToolCallEnd: "idle",
-  Stop: "idle",
-  SessionEnd: "idle",
-  Error: "error",
+  UserPromptSubmit: "thinking",
+  PreToolUse: "working",
+  PostToolUse: "working",
+  PostToolUseFailure: "error",
+  Stop: "attention",
+  PreCompact: "sweeping",
+  PostCompact: "attention",
+  SessionEnd: "sleeping",
 };
 
 export const piDescriptor: AgentDescriptor = baseDescriptor({
   id: "pi",
   name: "Pi",
+  integrationKind: "pi-extension",
+  eventSource: "extension",
   eventMap: EVENT_MAP,
-  processNames: { win: ["pi.exe"], mac: ["pi"] },
-  configPaths: [],
-  capabilities: { state: true, permission: false },
+  processNames: { win: ["pi.exe"], mac: ["pi"], linux: ["pi"] },
+  configPaths: [
+    { platform: "win", path: join(homedir(), ".pi", "agent", "extensions", "clawd-on-desk"), type: "extension" },
+    { platform: "mac", path: join(homedir(), ".pi", "agent", "extensions", "clawd-on-desk"), type: "extension" },
+  ],
+  capabilities: { state: true, permission: false, httpHook: false, notificationHook: false, interactiveBubble: false, sessionEnd: true, subagent: false },
+  hookConfig: {
+    configFormat: "pi-extension",
+    events: Object.keys(EVENT_MAP),
+  },
   defaultStateEnabled: true,
   defaultPermissionEnabled: false,
   mapEvent(input) { return makeEvent("pi", input); },

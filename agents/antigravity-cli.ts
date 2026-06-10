@@ -1,25 +1,34 @@
 import type { AgentDescriptor } from "../shared/agent-types";
 import type { BeaconState } from "../shared/types";
 import { baseDescriptor, makeEvent, makePermission } from "./agent-helper";
+import { join } from "path";
+import { homedir } from "os";
 
 const EVENT_MAP: Record<string, BeaconState> = {
-  SessionStart: "idle",
-  UserPromptSubmit: "working",
-  Thinking: "working",
-  ToolCallStart: "working",
-  ToolCallEnd: "idle",
-  Stop: "idle",
-  SessionEnd: "idle",
-  Error: "error",
+  PreInvocation: "thinking",
+  PostToolUse: "working",
+  PostInvocation: "idle",
+  Stop: "attention",
 };
 
 export const antigravityCliDescriptor: AgentDescriptor = baseDescriptor({
   id: "antigravity-cli",
   name: "Antigravity CLI",
+  integrationKind: "antigravity-hooks",
+  eventSource: "hook",
   eventMap: EVENT_MAP,
-  processNames: { win: ["antigravity.exe"], mac: ["antigravity"] },
-  configPaths: [],
-  capabilities: { state: true, permission: false },
+  processNames: { win: ["antigravity.exe"], mac: ["antigravity"], linux: ["antigravity"] },
+  configPaths: [
+    { platform: "win", path: join(homedir(), ".gemini", "config", "hooks.json"), type: "settings" },
+    { platform: "mac", path: join(homedir(), ".gemini", "config", "hooks.json"), type: "settings" },
+  ],
+  capabilities: { state: true, permission: false, httpHook: false, notificationHook: false, interactiveBubble: false, sessionEnd: true, subagent: true },
+  hookConfig: {
+    configFormat: "antigravity-hooks-json",
+    scriptName: "antigravity-hook.js",
+    events: ["PreInvocation", "PostToolUse", "PostInvocation", "Stop"],
+  },
+  stdinFormat: "antigravityHookJson",
   defaultStateEnabled: true,
   defaultPermissionEnabled: false,
   mapEvent(input) { return makeEvent("antigravity-cli", input); },

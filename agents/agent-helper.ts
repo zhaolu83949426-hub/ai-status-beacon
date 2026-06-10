@@ -38,6 +38,8 @@ export function makePermission(
 
 export function baseDescriptor(overrides: Partial<AgentDescriptor> & Pick<AgentDescriptor, "id" | "name" | "eventMap">): AgentDescriptor {
   return {
+    integrationKind: "claude-settings",
+    eventSource: "hook",
     processNames: { win: [], mac: [] },
     configPaths: [],
     capabilities: { state: true, permission: false },

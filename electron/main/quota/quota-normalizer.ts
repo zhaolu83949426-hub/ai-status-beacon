@@ -1,13 +1,22 @@
 import type { QuotaTier } from "../../../shared/types";
 
-const TIER_PRIORITY = ["five_hour", "weekly_limit", "seven_day", "premium"];
+const TIER_PRIORITY: Record<string, number> = {
+  five_hour: 0,
+  weekly_limit: 1,
+  seven_day: 2,
+  premium: 3,
+};
 
 export function sortAndLimitTiers(tiers: QuotaTier[], maxPerAccount = 2): QuotaTier[] {
-  const sorted = [...tiers].sort((a, b) => {
-    const aIdx = TIER_PRIORITY.indexOf(a.name);
-    const bIdx = TIER_PRIORITY.indexOf(b.name);
-    const aP = aIdx === -1 ? TIER_PRIORITY.length : aIdx;
-    const bP = bIdx === -1 ? TIER_PRIORITY.length : bIdx;
+  const seen = new Set<string>();
+  const deduped = tiers.filter((t) => {
+    if (seen.has(t.name)) return false;
+    seen.add(t.name);
+    return true;
+  });
+  const sorted = [...deduped].sort((a, b) => {
+    const aP = TIER_PRIORITY[a.name] ?? 99;
+    const bP = TIER_PRIORITY[b.name] ?? 99;
     return aP - bP;
   });
   return sorted.slice(0, maxPerAccount);

@@ -7,9 +7,15 @@ import { queryCopilotPremium } from "./providers/copilot-premium";
 import { queryKimiTokenPlan } from "./providers/kimi-token-plan";
 import { queryZhipuTokenPlan } from "./providers/zhipu-token-plan";
 import { queryMiniMaxTokenPlan } from "./providers/minimax-token-plan";
+import { queryDeepSeekBalance } from "./providers/deepseek-balance";
+import { queryStepFunBalance } from "./providers/stepfun-balance";
+import { querySiliconFlowBalance } from "./providers/siliconflow-balance";
+import { queryOpenRouterBalance } from "./providers/openrouter-balance";
+import { queryNovitaBalance } from "./providers/novita-balance";
 import { sortAndLimitTiers } from "./quota-normalizer";
+import { getQuotaAccountTypeProfile } from "../../../shared/quota-account";
 
-type ProviderFn = (credential: string, baseUrl?: string) => Promise<QuotaTier[]>;
+type ProviderFn = (credential: string, baseUrl?: string, accountId?: string) => Promise<QuotaTier[]>;
 
 const PROVIDERS: Record<QuotaAccountType, ProviderFn> = {
   claude_official: queryClaudeOfficial,
@@ -19,6 +25,11 @@ const PROVIDERS: Record<QuotaAccountType, ProviderFn> = {
   kimi_token_plan: queryKimiTokenPlan,
   zhipu_token_plan: queryZhipuTokenPlan,
   minimax_token_plan: queryMiniMaxTokenPlan,
+  deepseek_balance: queryDeepSeekBalance,
+  stepfun_balance: queryStepFunBalance,
+  siliconflow_balance: querySiliconFlowBalance,
+  openrouter_balance: queryOpenRouterBalance,
+  novita_balance: queryNovitaBalance,
 };
 
 export class QuotaService {
@@ -43,11 +54,13 @@ export class QuotaService {
       };
     }
 
-    const credential = this.credentialStore.get(account.id, "api_key")
-      ?? this.credentialStore.get(account.id, "access_token")
-      ?? null;
+    const profile = getQuotaAccountTypeProfile(account.type);
+    const credential = profile.requiresSecret
+      ? this.credentialStore.get(account.id, "api_key") ?? this.credentialStore.get(account.id, "access_token") ?? null
+      : null;
+    const accountId = this.credentialStore.getAccountId(account.id);
 
-    if (!credential) {
+    if (profile.requiresSecret && !credential) {
       return {
         accountId: account.id,
         accountType: account.type,
@@ -60,7 +73,7 @@ export class QuotaService {
     }
 
     try {
-      const tiers = await provider(credential, account.baseUrl);
+      const tiers = await provider(credential ?? "", account.baseUrl ?? undefined, accountId ?? undefined);
       return {
         accountId: account.id,
         accountType: account.type,
@@ -90,26 +103,31 @@ export class QuotaService {
     slot1Id: string | null,
     slot2Id: string | null,
   ): Promise<AccountQuotaSnapshot[]> {
-    const ids = [slot1Id, slot2Id].filter((id): id is string => id !== null);
-    const toQuery = accounts.filter((a) => ids.includes(a.id));
+    const slotIds = [slot1Id, slot2Id].filter((id): id is string => id !== null);
+    const uniqueIds = [...new Set(slotIds)];
+    const snapshotsByAccountId = new Map<string, AccountQuotaSnapshot>();
 
     const results = await Promise.allSettled(
-      toQuery.map((a) => this.queryAccount(a)),
+      uniqueIds.map(async (accountId) => {
+        const account = accounts.find((item) => item.id === accountId);
+        return [accountId, account ? await this.queryAccount(account) : this.buildMissingSnapshot(accountId)] as const;
+      }),
     );
 
-    return results.map((r) =>
-      r.status === "fulfilled"
-        ? r.value
-        : {
-            accountId: "",
-            accountType: "claude_official" as QuotaAccountType,
-            success: false,
-            credentialStatus: "parse_error" as const,
-            tiers: [],
-            error: r.reason?.message ?? "Unknown error",
-            queriedAt: null,
-          },
-    );
+    results.forEach((result, index) => {
+      if (result.status === "fulfilled") {
+        const [accountId, snapshot] = result.value;
+        snapshotsByAccountId.set(accountId, snapshot);
+        return;
+      }
+
+      const failedAccountId = uniqueIds[index] ?? "";
+      snapshotsByAccountId.set(failedAccountId, this.buildErrorSnapshot(failedAccountId, result.reason?.message));
+    });
+
+    return slotIds
+      .map((accountId) => snapshotsByAccountId.get(accountId))
+      .filter((snapshot): snapshot is AccountQuotaSnapshot => Boolean(snapshot));
   }
 
   startPeriodicRefresh(
@@ -136,5 +154,29 @@ export class QuotaService {
       clearInterval(this.refreshTimer);
       this.refreshTimer = null;
     }
+  }
+
+  private buildMissingSnapshot(accountId: string): AccountQuotaSnapshot {
+    return {
+      accountId,
+      accountType: "claude_official",
+      success: false,
+      credentialStatus: "not_found",
+      tiers: [],
+      error: "Account not found",
+      queriedAt: null,
+    };
+  }
+
+  private buildErrorSnapshot(accountId: string, message?: string): AccountQuotaSnapshot {
+    return {
+      accountId,
+      accountType: "claude_official",
+      success: false,
+      credentialStatus: "parse_error",
+      tiers: [],
+      error: message ?? "Unknown error",
+      queriedAt: null,
+    };
   }
 }
