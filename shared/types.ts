@@ -12,6 +12,7 @@ export type BeaconState =
   | "sweeping"
   | "carrying"
   | "codex-turn-end"
+  | "codex-permission"
   | "error";
 
 // ── Agent Events ──
@@ -28,6 +29,21 @@ export interface AgentStateEvent {
   model?: string;
   provider?: string;
   occurredAt: number;
+  hookSource?: string;
+  sessionTitle?: string;
+  turnId?: string;
+  toolUseId?: string;
+  toolInputFingerprint?: string;
+  assistantLastOutput?: string;
+  assistantLastOutputTruncated?: boolean;
+  codexSessionRole?: string;
+  codexOriginator?: string;
+  codexSource?: string;
+  headless?: boolean;
+  preserveState?: boolean;
+  editor?: string;
+  permissionMode?: string;
+  transcriptPath?: string;
 }
 
 export interface AgentSession {
@@ -64,6 +80,12 @@ export interface PermissionRequest {
   suggestions: PermissionSuggestion[];
   requiresTextInput: boolean;
   createdAt: number;
+  toolUseId?: string;
+  toolInputFingerprint?: string;
+  hookSource?: string;
+  turnId?: string;
+  permissionMode?: string;
+  transcriptPath?: string;
 }
 
 export interface PendingPermission extends PermissionRequest {
@@ -199,6 +221,19 @@ export interface AppSettings {
   };
 }
 
+// ── Notification Bubble ──
+
+export interface NotificationBubble {
+  id: string;
+  agentId: string;
+  agentName?: string;
+  event: string;
+  toolName?: string;
+  cwd?: string;
+  summary?: string;
+  createdAt: number;
+}
+
 // ── Snapshot ──
 
 export interface BeaconSnapshot {
@@ -272,6 +307,7 @@ export interface BeaconApi {
   getUpdateStatus(): Promise<UpdateProgress>;
   onUpdateStatus(listener: (progress: UpdateProgress) => void): () => void;
   getAppVersion(): Promise<string>;
+  onNotificationBubble(listener: (bubble: NotificationBubble) => void): () => void;
 }
 
 declare global {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { UpdateProgress } from "../../../shared/types";
+import logo from "../../../public/icon-256.png";
 
 type UpdateStatus = UpdateProgress["status"];
 const STATUS_LABEL: Record<UpdateStatus, string> = {
@@ -56,13 +57,17 @@ export function AboutTab() {
     await window.beaconApi.installUpdate();
   }, []);
 
+  const openLink = useCallback((url: string) => {
+    window.beaconApi.openExternal(url);
+  }, []);
+
   const renderUpdateBlock = () => {
     const { status, latestVersion, downloadProgress } = update;
 
     if (status === "idle" && !checking) {
       return (
         <button
-          className="about-update-btn about-update-btn-check"
+          className="about-check-update-btn"
           onClick={handleCheck}
         >
           检查更新
@@ -72,7 +77,7 @@ export function AboutTab() {
 
     if (checking || status === "checking") {
       return (
-        <div className="about-update-status about-update-checking">
+        <div className="about-update-status checking">
           <span className="about-update-spinner" />
           <span>正在检查更新…</span>
         </div>
@@ -81,7 +86,7 @@ export function AboutTab() {
 
     if (status === "up-to-date") {
       return (
-        <div className="about-update-status about-update-uptodate">
+        <div className="about-update-status uptodate">
           <span className="about-update-icon">✓</span>
           <span>已是最新版本</span>
         </div>
@@ -90,13 +95,13 @@ export function AboutTab() {
 
     if (status === "available") {
       return (
-        <div className="about-update-status about-update-available">
+        <div className="about-update-status available">
           <span className="about-update-icon">🔵</span>
           <span className="about-update-version">
             发现新版本 v{latestVersion}
           </span>
           <button
-            className="about-update-btn about-update-btn-download"
+            className="about-action-btn"
             onClick={handleDownload}
           >
             下载更新
@@ -108,7 +113,7 @@ export function AboutTab() {
     if (status === "downloading") {
       const pct = downloadProgress ?? 0;
       return (
-        <div className="about-update-status about-update-downloading">
+        <div className="about-update-status downloading">
           <span className="about-update-icon">⬇️</span>
           <span>正在下载 v{latestVersion}</span>
           <div className="about-update-progress">
@@ -124,11 +129,11 @@ export function AboutTab() {
 
     if (status === "downloaded") {
       return (
-        <div className="about-update-status about-update-downloaded">
+        <div className="about-update-status downloaded">
           <span className="about-update-icon">✅</span>
           <span>v{latestVersion} 已下载</span>
           <button
-            className="about-update-btn about-update-btn-install"
+            className="about-action-btn"
             onClick={handleInstall}
           >
             重启并安装
@@ -139,11 +144,11 @@ export function AboutTab() {
 
     if (status === "error") {
       return (
-        <div className="about-update-status about-update-error">
+        <div className="about-update-status error">
           <span className="about-update-icon">⚠️</span>
           <span>更新失败</span>
           <button
-            className="about-update-btn about-update-btn-check"
+            className="about-action-btn"
             onClick={handleCheck}
           >
             重试
@@ -157,41 +162,66 @@ export function AboutTab() {
 
   return (
     <div className="section about-section">
-      <div className="about-logo">
-        <div className="about-logo-circle">🚦</div>
-      </div>
-      <h2 className="about-title">AI Status Beacon</h2>
-      <p className="about-version">版本 {version}</p>
-      <p className="about-desc">
-        跨平台桌面状态栏工具，持续展示 AI Agent 执行状态与账号额度。
-      </p>
-
-      <div className="about-update-card">
-        <div className="about-update-header">
-          <span className="about-update-label">在线更新</span>
-          {update.status !== "idle" && !checking && (
-            <span
-              className={`about-update-pill about-update-pill-${update.status}`}
-            >
-              {STATUS_LABEL[update.status]}
-            </span>
-          )}
+      <div className="about-hero">
+        <div className="about-logo-wrap">
+          <img
+            src={logo}
+            alt="AI Status Beacon"
+            className="about-logo-img"
+          />
         </div>
-        <div className="about-update-body">{renderUpdateBlock()}</div>
+        <h2 className="about-title">AI Status Beacon</h2>
+        <p className="about-tagline">
+          跨平台桌面状态栏工具，持续展示 AI Agent 执行状态与账号额度
+        </p>
       </div>
 
-      <div className="about-links">
-        <a
-          href="https://github.com/open-sprout/ai-status-beacon"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="about-link"
-        >
-          GitHub →
-        </a>
+      <div className="about-info-section">
+        <div className="about-info-row">
+          <span className="about-info-label">版本</span>
+          <div className="about-info-value">
+            <span>v{version || "?"}</span>
+            {update.status !== "idle" && (
+              <span className={`about-update-pill about-update-pill-${update.status}`}>
+                {STATUS_LABEL[update.status]}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="about-info-row">
+          <span className="about-info-label">在线更新</span>
+          <div className="about-info-value">
+            {renderUpdateBlock()}
+          </div>
+        </div>
+
+        <div className="about-info-row">
+          <span className="about-info-label">开源地址</span>
+          <div className="about-info-value">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                openLink("https://github.com/open-sprout/ai-status-beacon");
+              }}
+            >
+              github.com/open-sprout/ai-status-beacon
+            </a>
+          </div>
+        </div>
+
+        <div className="about-info-row">
+          <span className="about-info-label">许可证</span>
+          <div className="about-info-value">
+            MIT License
+          </div>
+        </div>
       </div>
-      <div className="about-qr-label">赞赏支持</div>
-      <div className="about-qr-placeholder">二维码</div>
+
+      <div className="about-footer">
+        用 ❤️ 打造的 AI 辅助开发工具
+      </div>
     </div>
   );
 }

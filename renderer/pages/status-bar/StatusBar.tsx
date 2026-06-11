@@ -1,6 +1,7 @@
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import type { BeaconSnapshot, BeaconState, StatusBarPlacement } from "../../../shared/types";
 import { QuotaSlot } from "../../components/QuotaCircle";
+import { NotificationBubbles } from "../../components/NotificationBubbles";
 import notchPanel from "../../public/img/notch_panel1_tighter.png";
 
 const STATE_COLORS: Record<BeaconState, string> = {
@@ -80,6 +81,7 @@ export function StatusBar() {
 
   return (
     <div className="status-bar-wrapper">
+      <NotificationBubbles placement={snapshot.placement} />
       <div className={`status-bar edge-${snapshot.placement.edge}`}>
         <div className="status-bar-bg" style={backgroundStyle} />
         <div className="traffic-light">

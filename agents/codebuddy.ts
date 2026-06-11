@@ -36,7 +36,7 @@ export const codebuddyDescriptor: AgentDescriptor = baseDescriptor({
   },
   stdinFormat: "claudeCodeHookJson",
   defaultStateEnabled: true,
-  defaultPermissionEnabled: false,
+  defaultPermissionEnabled: true,
   mapEvent(input) { return makeEvent("codebuddy", input); },
   mapPermission(input) { return makePermission(input); },
 });

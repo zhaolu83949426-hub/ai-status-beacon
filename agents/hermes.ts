@@ -32,7 +32,7 @@ export const hermesDescriptor: AgentDescriptor = baseDescriptor({
     events: Object.keys(EVENT_MAP),
   },
   defaultStateEnabled: true,
-  defaultPermissionEnabled: false,
+  defaultPermissionEnabled: true,
   mapEvent(input) { return makeEvent("hermes", input); },
   mapPermission(input) { return makePermission(input); },
 });

@@ -90,7 +90,7 @@ function buildEntries(options: {
   }
   for (const event of config.permissionEvents ?? []) {
     if (entries[event] || !options.settings.permissionEnabled) continue;
-    entries[event] = [buildPermissionEntry(options.port)];
+    entries[event] = [buildPermissionEntry(options.agent.id, options.port)];
   }
   return entries;
 }
@@ -124,10 +124,12 @@ function buildClaudeCompatibleEntry(event: string, command: string, platform: No
   };
 }
 
-function buildPermissionEntry(port: number): HookEntry {
+function buildPermissionEntry(agentId: string, port: number): HookEntry {
+  const url = new URL(`http://127.0.0.1:${port}/permission`);
+  url.searchParams.set("agentId", agentId);
   return {
     matcher: "",
-    hooks: [{ type: "http", url: `http://127.0.0.1:${port}/permission`, timeout: PERMISSION_HOOK_TIMEOUT_SECONDS }],
+    hooks: [{ type: "http", url: url.toString(), timeout: PERMISSION_HOOK_TIMEOUT_SECONDS }],
   };
 }
 

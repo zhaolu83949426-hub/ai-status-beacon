@@ -1,4 +1,4 @@
-import type { AgentDescriptor } from "../shared/agent-types";
+﻿import type { AgentDescriptor } from "../shared/agent-types";
 import type { BeaconState } from "../shared/types";
 import { baseDescriptor, makeEvent, makePermission } from "./agent-helper";
 import { join } from "path";
@@ -11,6 +11,19 @@ const EVENT_MAP: Record<string, BeaconState> = {
   PermissionRequest: "notification",
   PostToolUse: "working",
   Stop: "codex-turn-end",
+  JsonlTaskStarted: "thinking",
+  JsonlUserMessage: "thinking",
+  JsonlGuardianAssessment: "working",
+  JsonlExecCommandEnd: "working",
+  JsonlPatchApplyEnd: "working",
+  JsonlCustomToolCallOutput: "working",
+  JsonlFunctionCall: "working",
+  JsonlCustomToolCall: "working",
+  JsonlWebSearchCall: "working",
+  JsonlContextCompacted: "sweeping",
+  JsonlTaskComplete: "codex-turn-end",
+  JsonlTaskCompleteIdle: "idle",
+  JsonlTurnAborted: "idle",
 };
 
 export const codexDescriptor: AgentDescriptor = baseDescriptor({
@@ -35,8 +48,14 @@ export const codexDescriptor: AgentDescriptor = baseDescriptor({
   },
   stdinFormat: "codexHookJson",
   pidField: "codex_pid",
+  logConfig: {
+    sessionDir: "~/.codex/sessions",
+    filePattern: "rollout-*.jsonl",
+    pollIntervalMs: 1500,
+  },
   defaultStateEnabled: true,
   defaultPermissionEnabled: true,
   mapEvent(input) { return makeEvent("codex", input); },
   mapPermission(input) { return makePermission(input); },
 });
+

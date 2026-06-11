@@ -52,6 +52,12 @@ export interface AgentHookConfig {
   permissionEvents?: string[];
 }
 
+export interface AgentLogConfig {
+  sessionDir: string;
+  filePattern: string;
+  pollIntervalMs: number;
+}
+
 export interface AgentDescriptor {
   id: string;
   name: string;
@@ -73,6 +79,7 @@ export interface AgentDescriptor {
     subagent?: boolean;
   };
   hookConfig?: AgentHookConfig;
+  logConfig?: AgentLogConfig;
   stdinFormat?: string;
   pidField?: string;
   defaultStateEnabled: boolean;

@@ -7,6 +7,7 @@ import { registerIpcHandlers } from "./ipc/ipc-handlers";
 import { createStatusBarWindow } from "./windows/status-bar-window";
 import { startDisplayMonitor } from "./windows/display-monitor";
 import { initRegistry, getDefaultAgentSettings } from "./agents/registry";
+import { CodexJsonlMonitor } from "./agents/codex-jsonl-monitor";
 import { HookSyncService } from "./hooks/hook-sync";
 import { createTray } from "./tray/tray";
 import { computeBounds } from "./windows/status-bar-geometry";
@@ -22,6 +23,14 @@ import { initUpdater, stopScheduler } from "./updater/updater";
 import type { AgentSettings } from "../../shared/types";
 
 const log = getLogger();
+const CODEX_OFFICIAL_HOOK_EVENTS = new Set([
+  "SessionStart",
+  "UserPromptSubmit",
+  "PreToolUse",
+  "PostToolUse",
+  "Stop",
+  "PermissionRequest",
+]);
 
 let mainWindow: BrowserWindow | null = null;
 let settings: SettingsStore;
@@ -29,6 +38,7 @@ let stateStore: StateStore;
 let permissionStore: PermissionStore;
 let soundService: SoundService;
 let quotaService: QuotaService;
+let codexJsonlMonitor: CodexJsonlMonitor;
 
 function getQuotaSlotCount() {
   const displaySlots = settings.get().quota.displaySlots;
@@ -54,8 +64,38 @@ function syncStatusBarBounds() {
   }));
 }
 
+const NOTIFICATION_EVENTS = new Set([
+  "PreToolUse",
+  "PostToolUse",
+  "PostToolUseFailure",
+  "PermissionRequest",
+]);
+
+function pushNotificationBubble(event: import("../../shared/types").AgentStateEvent): void {
+  if (!NOTIFICATION_EVENTS.has(event.event)) return;
+  const agent = getAgent(event.agentId);
+  mainWindow?.webContents.send("notification-bubble", {
+    id: `${event.agentId}-${event.sessionId}-${Date.now()}`,
+    agentId: event.agentId,
+    agentName: agent?.name ?? event.agentId,
+    event: event.event,
+    toolName: event.toolName,
+    cwd: event.cwd,
+    createdAt: Date.now(),
+  });
+}
+
 function shouldSyncHooks(agentSettings: AgentSettings): boolean {
   return agentSettings.stateEnabled || agentSettings.permissionEnabled;
+}
+
+function syncCodexJsonlMonitor(): void {
+  if (!codexJsonlMonitor) return;
+  if (settings.get().agents.codex?.stateEnabled) {
+    codexJsonlMonitor.start();
+    return;
+  }
+  codexJsonlMonitor.stop();
 }
 
 function bootstrap() {
@@ -81,9 +121,22 @@ function bootstrap() {
   // 4. Create state and permission stores
   stateStore = new StateStore(settings);
   permissionStore = new PermissionStore(stateStore);
+  // Codex 用 JSONL 补官方 hook 缺失的中止/完成事件。
+  codexJsonlMonitor = new CodexJsonlMonitor(stateStore, () => settings.get().agents.codex?.stateEnabled ?? false);
+  syncCodexJsonlMonitor();
 
   // 5. Start HTTP server
-  const server = new BeaconServer(stateStore, permissionStore, settings);
+  const server = new BeaconServer(
+    stateStore,
+    permissionStore,
+    settings,
+    (event) => {
+      if (event.agentId === "codex" && CODEX_OFFICIAL_HOOK_EVENTS.has(event.event)) {
+        codexJsonlMonitor.markOfficialHookSession(event.sessionId);
+      }
+      pushNotificationBubble(event);
+    },
+  );
   server.start().then(() => {
     log.info("server", `HTTP server started on port ${server.getPort()}`);
     // 6. Sync hooks for enabled agents
@@ -186,6 +239,7 @@ function bootstrap() {
   settings.onChange(() => {
     syncQuotaRefresh();
     syncStatusBarBounds();
+    syncCodexJsonlMonitor();
   });
 
   // 19. 初始化自动更新
@@ -207,6 +261,7 @@ function bootstrap() {
       unregisterHotkeys();
       quotaService.stopPeriodicRefresh();
       soundService.destroy();
+      codexJsonlMonitor.stop();
       server.stop();
       permissionStore.closeAll();
       stateStore.destroy();

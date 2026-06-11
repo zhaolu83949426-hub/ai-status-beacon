@@ -26,7 +26,7 @@ export const geminiCliDescriptor: AgentDescriptor = baseDescriptor({
     { platform: "mac", path: join(homedir(), ".gemini", "settings.json"), type: "settings" },
     { platform: "win", path: join(homedir(), ".gemini", "settings.json"), type: "settings" },
   ],
-  capabilities: { state: true, permission: false, httpHook: false, notificationHook: true, sessionEnd: true, subagent: false },
+  capabilities: { state: true, permission: true, httpHook: false, notificationHook: true, sessionEnd: true, subagent: false },
   hookConfig: {
     configFormat: "gemini-settings-json",
     scriptName: "gemini-hook.js",
@@ -35,7 +35,7 @@ export const geminiCliDescriptor: AgentDescriptor = baseDescriptor({
   stdinFormat: "geminiHookJson",
   pidField: "gemini_pid",
   defaultStateEnabled: true,
-  defaultPermissionEnabled: false,
+  defaultPermissionEnabled: true,
   mapEvent(input) { return makeEvent("gemini-cli", input); },
   mapPermission(input) { return makePermission(input); },
 });

@@ -8,6 +8,7 @@ import type {
   DashboardSessionView,
   QuotaAccountFormData,
   UpdateProgress,
+  NotificationBubble,
 } from "../../shared/types";
 
 const api: BeaconApi = {
@@ -82,6 +83,11 @@ const api: BeaconApi = {
   },
   getAppVersion(): Promise<string> {
     return ipcRenderer.invoke("getAppVersion");
+  },
+  onNotificationBubble(listener) {
+    const handler = (_: unknown, bubble: NotificationBubble) => listener(bubble);
+    ipcRenderer.on("notification-bubble", handler);
+    return () => ipcRenderer.removeListener("notification-bubble", handler);
   },
 };
 

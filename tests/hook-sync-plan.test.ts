@@ -32,7 +32,7 @@ describe("Hook Sync Plan", () => {
     expect(hooks.SessionStart[0].hooks[0].command).toContain("clawd-hook.js");
     expect(hooks.PermissionRequest[0].hooks[0]).toEqual({
       type: "http",
-      url: "http://127.0.0.1:23337/permission",
+      url: "http://127.0.0.1:23337/permission?agentId=claude-code",
       timeout: 600,
     });
     expect(inspectHookStatus(config, plan)).toBe("synced");

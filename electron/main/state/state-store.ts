@@ -20,7 +20,21 @@ const STATE_PRIORITY: Record<BeaconState, number> = {
 };
 
 const MAX_SESSIONS = 50;
+const CLEANUP_INTERVAL_MS = 5_000;
+const THINKING_STALE_MS = 45_000;
+const ACTIVE_SESSION_STALE_MS = 5 * 60 * 1000;
 const STALE_SESSION_MS = 10 * 60 * 1000; // 10 minutes
+
+const AUTO_RETURN_MS: Partial<Record<BeaconState, number>> = {
+  attention: 4000,
+  error: 5000,
+  sweeping: 300000,
+  notification: 5000,
+  carrying: 3000,
+};
+
+const ONESHOT_STATES = new Set(["attention", "error", "sweeping", "notification", "carrying"]);
+
 const log = getLogger();
 
 type SnapshotListener = (snapshot: BeaconSnapshot) => void;
@@ -30,11 +44,12 @@ export class StateStore extends EventEmitter {
   private settings: SettingsStore;
   private quotaSlots: AccountQuotaSnapshot[] = [];
   private staleTimer?: ReturnType<typeof setInterval>;
+  private autoReturnTimer?: ReturnType<typeof setTimeout>;
 
   constructor(settings: SettingsStore) {
     super();
     this.settings = settings;
-    this.staleTimer = setInterval(() => this.cleanStaleSessions(), 60_000);
+    this.staleTimer = setInterval(() => this.cleanStaleSessions(), CLEANUP_INTERVAL_MS);
   }
 
   handleStateEvent(event: AgentStateEvent): void {
@@ -73,6 +88,8 @@ export class StateStore extends EventEmitter {
       this.sessions.set(key, session);
     }
 
+    this.cleanStaleSessions(now, false);
+
     log.info("agent", "State updated", {
       agentId: event.agentId,
       sessionId: event.sessionId,
@@ -81,6 +98,7 @@ export class StateStore extends EventEmitter {
       aggregatedState: this.getAggregatedState(),
     });
 
+    this.scheduleAutoReturn(beaconState);
     this.emitSnapshot();
   }
 
@@ -136,14 +154,57 @@ export class StateStore extends EventEmitter {
 
   destroy(): void {
     if (this.staleTimer) clearInterval(this.staleTimer);
+    if (this.autoReturnTimer) clearTimeout(this.autoReturnTimer);
     this.removeAllListeners();
   }
 
-  private cleanStaleSessions(): void {
+  private scheduleAutoReturn(state: BeaconState): void {
+    const ms = AUTO_RETURN_MS[state];
+    if (!ms) return;
+
+    if (this.autoReturnTimer) {
+      clearTimeout(this.autoReturnTimer);
+    }
+
+    this.autoReturnTimer = setTimeout(() => {
+      this.autoReturnTimer = undefined;
+      this.cleanupOneshotSessions();
+      this.emitSnapshot();
+    }, ms);
+  }
+
+  private cleanupOneshotSessions(): void {
     const now = Date.now();
     let changed = false;
+    for (const session of this.sessions.values()) {
+      if (ONESHOT_STATES.has(session.state)) {
+        session.state = "idle";
+        session.updatedAt = now;
+        changed = true;
+      }
+    }
+    if (changed) {
+      log.info("agent", "Oneshot sessions cleaned up");
+    }
+  }
+
+  private cleanStaleSessions(now = Date.now(), emitSnapshot = true): void {
+    let changed = false;
     for (const [key, session] of this.sessions) {
-      if (now - session.updatedAt > STALE_SESSION_MS && session.state !== "idle") {
+      const age = now - session.updatedAt;
+      if (session.state === "thinking" && age > THINKING_STALE_MS) {
+        session.state = "idle";
+        session.updatedAt = now;
+        changed = true;
+        continue;
+      }
+      if ((session.state === "working" || session.state === "juggling") && age > ACTIVE_SESSION_STALE_MS) {
+        session.state = "idle";
+        session.updatedAt = now;
+        changed = true;
+        continue;
+      }
+      if (age > STALE_SESSION_MS && session.state !== "idle") {
         session.state = "idle";
         session.updatedAt = now;
         changed = true;
@@ -156,7 +217,7 @@ export class StateStore extends EventEmitter {
         changed = true;
       }
     }
-    if (changed) this.emitSnapshot();
+    if (changed && emitSnapshot) this.emitSnapshot();
   }
 
   private emitSnapshot(): void {

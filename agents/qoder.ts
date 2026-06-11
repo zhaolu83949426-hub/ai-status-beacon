@@ -23,7 +23,7 @@ export const qoderDescriptor: AgentDescriptor = baseDescriptor({
   integrationKind: "qoder-settings",
   eventSource: "hook",
   eventMap: EVENT_MAP,
-  processNames: { win: ["qoder.exe"], mac: ["qoder"], linux: ["qoder"] },
+  processNames: { win: ["qoder.exe", "qodercli.exe", "qoder-cli.exe"], mac: ["qoder", "qodercli", "qoder-cli"], linux: ["qoder", "qodercli", "qoder-cli"] },
   configPaths: [
     { platform: "win", path: join(homedir(), ".qoder", "settings.json"), type: "settings" },
     { platform: "mac", path: join(homedir(), ".qoder", "settings.json"), type: "settings" },

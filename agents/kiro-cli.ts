@@ -23,7 +23,7 @@ export const kiroCliDescriptor: AgentDescriptor = baseDescriptor({
     { platform: "win", path: join(homedir(), ".kiro", "agents"), type: "agents-dir" },
     { platform: "mac", path: join(homedir(), ".kiro", "agents"), type: "agents-dir" },
   ],
-  capabilities: { state: true, permission: false, httpHook: false, sessionEnd: false, subagent: false },
+  capabilities: { state: true, permission: true, httpHook: false, sessionEnd: false, subagent: false },
   hookConfig: {
     configFormat: "kiro-agent-json",
     scriptName: "kiro-hook.js",
@@ -31,7 +31,7 @@ export const kiroCliDescriptor: AgentDescriptor = baseDescriptor({
   },
   stdinFormat: "camelCase",
   defaultStateEnabled: true,
-  defaultPermissionEnabled: false,
+  defaultPermissionEnabled: true,
   mapEvent(input) { return makeEvent("kiro-cli", input); },
   mapPermission(input) { return makePermission(input); },
 });

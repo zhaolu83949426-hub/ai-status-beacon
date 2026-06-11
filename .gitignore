@@ -4,6 +4,12 @@ node_modules/
 # Build output
 dist/
 out/
+*.exe
+*.zip
+*.dmg
+
+# electron-builder tools cache
+tools/
 
 # Vite cache
 .vite/

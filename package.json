@@ -10,8 +10,15 @@
     "start": "electron-vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build:win": "npm run build && electron-builder --win",
-    "build:mac": "npm run build && electron-builder --mac",
+    "pack:win:dir": "electron-builder --win dir --publish never",
+    "pack:win:installer": "electron-builder --win nsis --publish never",
+    "release:win": "npm run build && npm run pack:win:installer",
+    "publish:win": "npm run build && electron-builder --win nsis --publish always",
+    "pack:mac:dmg": "electron-builder --mac dmg --publish never",
+    "release:mac": "npm run build && npm run pack:mac:dmg",
+    "publish:mac": "npm run build && electron-builder --mac dmg --publish always",
+    "build:win": "npm run release:win",
+    "build:mac": "npm run release:mac",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
@@ -74,8 +81,7 @@
         {
           "target": "nsis",
           "arch": [
-            "x64",
-            "arm64"
+            "x64"
           ]
         }
       ]

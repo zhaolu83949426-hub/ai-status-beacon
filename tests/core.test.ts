@@ -114,7 +114,7 @@ describe("Hook Plan", () => {
     });
 
     expect(plan.entries.PermissionRequest[0].hooks).toEqual([
-      { type: "http", url: "http://127.0.0.1:23333/permission", timeout: 600 },
+      { type: "http", url: "http://127.0.0.1:23333/permission?agentId=test-agent", timeout: 600 },
     ]);
     expect(plan.entries.SessionStart).toBeUndefined();
   });
