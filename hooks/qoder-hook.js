@@ -26,6 +26,7 @@ const HOOK_MAP = {
   PostToolUse:        { state: "working",      event: "PostToolUse" },
   PostToolUseFailure: { state: "error",        event: "PostToolUseFailure" },
   Stop:               { state: "attention",    event: "Stop" },
+  StopFailure:        { state: "error",        event: "StopFailure" },
   Notification:       { state: "notification", event: "Notification" },
   // State-only: Qoder's permission events are surfaced as a passive Clawd
   // Notification (event: "Notification"), NOT as a Clawd PermissionRequest.

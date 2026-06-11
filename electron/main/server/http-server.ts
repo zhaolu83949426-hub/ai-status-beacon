@@ -353,7 +353,7 @@ export class BeaconServer {
 
   private sendJson(res: ServerResponse, status: number, body: unknown): void {
     res.writeHead(status, {
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
       "x-clawd-server": "ai-status-beacon",
     });
     res.end(JSON.stringify(body));

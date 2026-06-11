@@ -11,6 +11,7 @@ const EVENT_MAP: Record<string, BeaconState> = {
   PostToolUse: "working",
   PostToolUseFailure: "error",
   Stop: "attention",
+  StopFailure: "error",
   Notification: "notification",
   PermissionRequest: "notification",
   PermissionDenied: "notification",
@@ -34,7 +35,7 @@ export const qoderDescriptor: AgentDescriptor = baseDescriptor({
     scriptName: "qoder-hook.js",
     events: [
       "SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure",
-      "Stop", "Notification", "PermissionRequest", "PermissionDenied", "SessionEnd",
+      "Stop", "StopFailure", "Notification", "PermissionRequest", "PermissionDenied", "SessionEnd",
     ],
   },
   stdinFormat: "qoderHookJson",

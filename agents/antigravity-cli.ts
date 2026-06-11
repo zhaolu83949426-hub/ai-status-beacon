@@ -7,8 +7,10 @@ import { homedir } from "os";
 const EVENT_MAP: Record<string, BeaconState> = {
   PreInvocation: "thinking",
   PostToolUse: "working",
+  PostToolUseFailure: "error",
   PostInvocation: "idle",
   Stop: "attention",
+  StopFailure: "error",
 };
 
 export const antigravityCliDescriptor: AgentDescriptor = baseDescriptor({
@@ -26,7 +28,7 @@ export const antigravityCliDescriptor: AgentDescriptor = baseDescriptor({
   hookConfig: {
     configFormat: "antigravity-hooks-json",
     scriptName: "antigravity-hook.js",
-    events: ["PreInvocation", "PostToolUse", "PostInvocation", "Stop"],
+    events: ["PreInvocation", "PostToolUse", "PostToolUseFailure", "PostInvocation", "Stop", "StopFailure"],
   },
   stdinFormat: "antigravityHookJson",
   defaultStateEnabled: true,

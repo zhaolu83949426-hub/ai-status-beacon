@@ -8,7 +8,7 @@ const childProcess = require("child_process");
 const { asarUnpackedPath, writeJsonAtomic } = require("./json-utils");
 const { resolveNodeBin } = require("./server-config");
 
-const EXTENSION_DIR_NAME = "clawd-on-desk";
+const EXTENSION_DIR_NAME = "ai-status-beacon";
 const EXTENSION_FILE = "index.ts";
 const CORE_FILE = "pi-extension-core.js";
 const MARKER_FILE = ".ai-status-beacon-managed.json";
@@ -62,7 +62,7 @@ function readJsonIfPresent(filePath, fsImpl = fs) {
 function isManagedMarker(value) {
   return !!(
     value
-    && value.app === "clawd-on-desk"
+    && value.app === "ai-status-beacon"
     && value.integration === "pi"
     && value.managed === true
   );
@@ -70,7 +70,7 @@ function isManagedMarker(value) {
 
 function buildMarker() {
   return {
-    app: "clawd-on-desk",
+    app: "ai-status-beacon",
     integration: "pi",
     managed: true,
     version: 1,

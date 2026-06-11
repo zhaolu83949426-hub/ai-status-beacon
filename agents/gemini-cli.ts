@@ -10,6 +10,7 @@ const EVENT_MAP: Record<string, BeaconState> = {
   BeforeAgent: "thinking",
   BeforeTool: "working",
   AfterTool: "working",
+  PostToolUseFailure: "error",
   AfterAgent: "idle",
   Notification: "notification",
   PreCompress: "idle",

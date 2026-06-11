@@ -10,7 +10,9 @@ const EVENT_MAP: Record<string, BeaconState> = {
   UserPromptSubmit: "thinking",
   PreToolUse: "working",
   PostToolUse: "working",
+  PostToolUseFailure: "error",
   Stop: "attention",
+  StopFailure: "error",
   PermissionRequest: "notification",
 };
 
@@ -29,7 +31,7 @@ export const qwenCodeDescriptor: AgentDescriptor = baseDescriptor({
   hookConfig: {
     configFormat: "qwen-settings-json",
     scriptName: "qwen-code-hook.js",
-    events: ["SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop", "Notification", "PermissionRequest"],
+    events: ["SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure", "Stop", "StopFailure", "Notification", "PermissionRequest"],
     permissionEvents: ["PermissionRequest"],
   },
   stdinFormat: "qwenHookJson",

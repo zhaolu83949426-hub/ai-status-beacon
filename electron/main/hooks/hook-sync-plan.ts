@@ -58,17 +58,23 @@ export function inspectHookStatus(config: Record<string, unknown>, plan: HookPla
   return "synced";
 }
 
-export function applyHookPlan(config: Record<string, unknown>, plan: HookPlan): void {
+export function applyHookPlan(config: Record<string, unknown>, plan: HookPlan): boolean {
   if (plan.rootGroup) {
+    if (JSON.stringify(config.clawd) === JSON.stringify(plan.rootGroup)) return false;
     config.clawd = plan.rootGroup;
-    return;
+    return true;
   }
   const hooks = ensureHooks(config);
+  let changed = false;
   for (const event of eventsToClean(plan)) {
     const filtered = filterManagedEntries(getEventEntries(hooks, event), plan.markers);
     const next = [...filtered, ...(plan.entries[event] ?? [])];
-    setEventEntries(hooks, event, next);
+    if (JSON.stringify(getEventEntries(hooks, event)) !== JSON.stringify(next)) {
+      setEventEntries(hooks, event, next);
+      changed = true;
+    }
   }
+  return changed;
 }
 
 function emptyPlan(agent: AgentDescriptor): HookPlan {

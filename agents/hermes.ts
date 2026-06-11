@@ -23,8 +23,9 @@ export const hermesDescriptor: AgentDescriptor = baseDescriptor({
   eventMap: EVENT_MAP,
   processNames: { win: ["hermes.exe"], mac: ["hermes"], linux: ["hermes"] },
   configPaths: [
-    { platform: "win", path: join(homedir(), ".hermes", "plugins", "clawd-on-desk"), type: "plugin" },
-    { platform: "mac", path: join(homedir(), ".hermes", "plugins", "clawd-on-desk"), type: "plugin" },
+    { platform: "win", path: join(homedir(), ".hermes", "plugins", "ai-status-beacon"), type: "plugin" },
+    { platform: "win", path: join(process.env.LOCALAPPDATA || "", "hermes", "plugins", "ai-status-beacon"), type: "plugin" },
+    { platform: "mac", path: join(homedir(), ".hermes", "plugins", "ai-status-beacon"), type: "plugin" },
   ],
   capabilities: { state: true, permission: true, httpHook: false, interactiveBubble: true, sessionEnd: true, subagent: false },
   hookConfig: {

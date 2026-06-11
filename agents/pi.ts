@@ -11,6 +11,7 @@ const EVENT_MAP: Record<string, BeaconState> = {
   PostToolUse: "working",
   PostToolUseFailure: "error",
   Stop: "attention",
+  StopFailure: "error",
   PreCompact: "sweeping",
   PostCompact: "attention",
   SessionEnd: "sleeping",
@@ -24,8 +25,8 @@ export const piDescriptor: AgentDescriptor = baseDescriptor({
   eventMap: EVENT_MAP,
   processNames: { win: ["pi.exe"], mac: ["pi"], linux: ["pi"] },
   configPaths: [
-    { platform: "win", path: join(homedir(), ".pi", "agent", "extensions", "clawd-on-desk"), type: "extension" },
-    { platform: "mac", path: join(homedir(), ".pi", "agent", "extensions", "clawd-on-desk"), type: "extension" },
+    { platform: "win", path: join(homedir(), ".pi", "agent", "extensions", "ai-status-beacon"), type: "extension" },
+    { platform: "mac", path: join(homedir(), ".pi", "agent", "extensions", "ai-status-beacon"), type: "extension" },
   ],
   capabilities: { state: true, permission: false, httpHook: false, notificationHook: false, interactiveBubble: false, sessionEnd: true, subagent: false },
   hookConfig: {

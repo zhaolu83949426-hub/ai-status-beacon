@@ -15,7 +15,7 @@ const STATE_PRIORITY: Record<BeaconState, number> = {
   juggling: 1,
   sweeping: 1,
   carrying: 1,
-  error: 2,
+  error: 5,
   approval: 3,
 };
 

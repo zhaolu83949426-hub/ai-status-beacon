@@ -37,7 +37,9 @@ const EVENT_TO_STATE = {
   UserPromptSubmit: "thinking",
   PreToolUse: "working",
   PostToolUse: "working",
+  PostToolUseFailure: "error",
   Stop: "attention",
+  StopFailure: "error",
 };
 
 function normalizeQwenSessionId(value) {

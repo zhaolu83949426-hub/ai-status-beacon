@@ -1,5 +1,5 @@
 "use strict";
 
 module.exports = {
-  name: "clawd-on-desk",
+  name: "ai-status-beacon",
 };

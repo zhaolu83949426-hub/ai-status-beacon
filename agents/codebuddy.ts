@@ -10,7 +10,9 @@ const EVENT_MAP: Record<string, BeaconState> = {
   UserPromptSubmit: "thinking",
   PreToolUse: "working",
   PostToolUse: "working",
+  PostToolUseFailure: "error",
   Stop: "attention",
+  StopFailure: "error",
   PermissionRequest: "notification",
   Notification: "notification",
   PreCompact: "sweeping",
@@ -31,7 +33,7 @@ export const codebuddyDescriptor: AgentDescriptor = baseDescriptor({
   hookConfig: {
     configFormat: "claude-code-compatible",
     scriptName: "codebuddy-hook.js",
-    events: ["SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop", "Notification", "PreCompact"],
+    events: ["SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure", "Stop", "StopFailure", "Notification", "PreCompact"],
     permissionEvents: ["PermissionRequest"],
   },
   stdinFormat: "claudeCodeHookJson",

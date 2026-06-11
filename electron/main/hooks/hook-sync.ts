@@ -62,8 +62,10 @@ export class HookSyncService {
     if (agent.hookConfig?.configFormat === "hermes-plugin") return this.syncHermes(configPath.path);
     const config = this.readJsonConfig(configPath.path);
     const plan = this.createPlan(agent);
-    applyHookPlan(config, plan);
-    this.writeJsonConfig(configPath.path, config);
+    const changed = applyHookPlan(config, plan);
+    if (changed) {
+      this.writeJsonConfig(configPath.path, config);
+    }
     return this.inspectJson(agent, config);
   }
 
@@ -112,9 +114,13 @@ export class HookSyncService {
   private syncKiroFile(agent: AgentDescriptor, filePath: string): void {
     const config = this.readJsonConfig(filePath);
     const plan = this.createPlan(agent);
-    applyHookPlan(config, plan);
-    if (!config.name) config.name = basename(filePath, ".json");
-    this.writeJsonConfig(filePath, config);
+    const changed = applyHookPlan(config, plan);
+    if (!config.name) {
+      config.name = basename(filePath, ".json");
+      this.writeJsonConfig(filePath, config);
+    } else if (changed) {
+      this.writeJsonConfig(filePath, config);
+    }
   }
 
   private inspectKiroFile(agent: AgentDescriptor, filePath: string): boolean {
@@ -123,10 +129,13 @@ export class HookSyncService {
 
   private syncOpencode(configPath: string): HookSyncResult["hookStatus"] {
     const config = existsSync(configPath) ? this.readJsonConfig(configPath) : { $schema: "https://opencode.ai/config.json" };
+    const originalContent = JSON.stringify(config, null, 2);
     const pluginDir = this.resourcePath("opencode-plugin");
     const plugins = Array.isArray(config.plugin) ? config.plugin as string[] : [];
     config.plugin = this.upsertPath(plugins, pluginDir, "opencode-plugin");
-    this.writeJsonConfig(configPath, config);
+    if (JSON.stringify(config, null, 2) !== originalContent) {
+      this.writeJsonConfig(configPath, config);
+    }
     return this.inspectOpencode(configPath);
   }
 
@@ -138,13 +147,16 @@ export class HookSyncService {
 
   private syncOpenClaw(configPath: string): HookSyncResult["hookStatus"] {
     const config = existsSync(configPath) ? this.readJsonConfig(configPath) : {};
+    const originalContent = JSON.stringify(config, null, 2);
     const pluginDir = this.resourcePath("openclaw-plugin");
     const plugins = this.ensureObject(config, "plugins");
     const load = this.ensureObject(plugins, "load");
     load.paths = this.upsertPath(Array.isArray(load.paths) ? load.paths as string[] : [], pluginDir, "openclaw-plugin");
     const entries = this.ensureObject(plugins, "entries");
-    entries["clawd-on-desk"] = { enabled: true, hooks: { allowConversationAccess: false } };
-    this.writeJsonConfig(configPath, config);
+    entries["ai-status-beacon"] = { enabled: true, hooks: { allowConversationAccess: false } };
+    if (JSON.stringify(config, null, 2) !== originalContent) {
+      this.writeJsonConfig(configPath, config);
+    }
     return this.inspectOpenClaw(configPath);
   }
 

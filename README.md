@@ -25,6 +25,16 @@ AI Status Beacon is a desktop status hub for AI coding agents. It keeps runtime 
 - Sound alerts, auto-start, tray controls, and utility-style desktop experience
 - GitHub Releases packaging for Windows and macOS
 
+## Traffic Light Logic
+
+- Single-light mode shows one color at a time, while triple-light mode uses separate red, yellow, and green lamps
+- Green means everything is idle, resting, or already finished
+- When a task finishes and the app returns to a calm state, the green light blinks a few times as a completion reminder
+- Yellow means the agent is busy, thinking, waiting for your attention, or asking for confirmation
+- Yellow keeps blinking when there is something you should notice right away, such as a permission request or an important prompt
+- Red means something went wrong
+- If several agent sessions are active at once, the status bar always shows the most important signal first
+
 ## Supported Agents
 
 - Claude Code

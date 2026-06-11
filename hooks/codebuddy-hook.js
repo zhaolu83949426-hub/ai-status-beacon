@@ -13,7 +13,9 @@ const HOOK_MAP = {
   UserPromptSubmit: { state: "thinking",     event: "UserPromptSubmit" },
   PreToolUse:       { state: "working",      event: "PreToolUse" },
   PostToolUse:      { state: "working",      event: "PostToolUse" },
+  PostToolUseFailure: { state: "error",       event: "PostToolUseFailure" },
   Stop:             { state: "attention",    event: "Stop" },
+  StopFailure:      { state: "error",        event: "StopFailure" },
   // PermissionRequest: handled by HTTP hook (blocking), not this command hook
   Notification:     { state: "notification", event: "Notification" },
   PreCompact:       { state: "sweeping",     event: "PreCompact" },

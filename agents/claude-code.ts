@@ -13,6 +13,7 @@ const CLAUDE_EVENT_MAP: Record<string, BeaconState> = {
   PostToolUseFailure: "error",
   Stop: "attention",
   StopFailure: "error",
+  ApiError: "error",
   SubagentStart: "juggling",
   SubagentStop: "working",
   PreCompact: "sweeping",
@@ -40,7 +41,7 @@ export const claudeCodeDescriptor: AgentDescriptor = baseDescriptor({
     events: [
       "SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse",
       "PostToolUseFailure", "Stop", "SubagentStart", "SubagentStop", "Notification",
-      "Elicitation", "PreCompact", "PostCompact", "StopFailure",
+      "Elicitation", "PreCompact", "PostCompact", "StopFailure", "ApiError",
     ],
     permissionEvents: ["PermissionRequest"],
   },
